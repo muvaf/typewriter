@@ -17,10 +17,10 @@ $a
 `
 
 type Slice struct {
-	Recursive GeneralPrinter
+	Recursive TypeTraverser
 }
 
-func (s *Slice) SetGeneralPrinter(p GeneralPrinter) {
+func (s *Slice) SetTypeTraverser(p TypeTraverser) {
 	s.Recursive = p
 }
 

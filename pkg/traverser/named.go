@@ -10,10 +10,10 @@ func NewNamed() *Named {
 }
 
 type Named struct {
-	Recursive GeneralPrinter
+	Recursive TypeTraverser
 }
 
-func (s *Named) SetGeneralPrinter(p GeneralPrinter) {
+func (s *Named) SetTypeTraverser(p TypeTraverser) {
 	s.Recursive = p
 }
 

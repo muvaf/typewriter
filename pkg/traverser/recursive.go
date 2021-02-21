@@ -5,71 +5,71 @@ import (
 	"go/types"
 )
 
-type GeneralPrinter interface {
+type TypeTraverser interface {
 	Print(a, b types.Type, aFieldPath, bFieldPath string, levelNum int) string
 }
 
 type RecursiveCaller interface {
-	SetGeneralPrinter(p GeneralPrinter)
+	SetTypeTraverser(p TypeTraverser)
 }
 
-type NamedPrinter interface {
+type NamedTraverser interface {
 	RecursiveCaller
 	Print(a, b *types.Named, aFieldPath, bFieldPath string, levelNum int) string
 }
 
-type SlicePrinter interface {
+type SliceTraverser interface {
 	RecursiveCaller
 	Print(a, b *types.Slice, aFieldPath, bFieldPath string, levelNum int) string
 }
 
-type BasicPrinter interface {
+type BasicTraverser interface {
 	Print(a, b *types.Basic, aFieldPath, bFieldPath string, levelNum int) string
 }
 
-func WithBasicPrinter(p BasicPrinter) Option {
-	return func(r *RecursivePrinter) {
+func WithBasic(p BasicTraverser) Option {
+	return func(r *Type) {
 		r.Basic = p
 	}
 }
 
-func WithNamedPrinter(p NamedPrinter) Option {
-	return func(r *RecursivePrinter) {
-		p.SetGeneralPrinter(r)
+func WithNamed(p NamedTraverser) Option {
+	return func(r *Type) {
+		p.SetTypeTraverser(r)
 		r.Named = p
 	}
 }
 
-func WithSlicePrinter(p SlicePrinter) Option {
-	return func(r *RecursivePrinter) {
-		p.SetGeneralPrinter(r)
+func WithSlice(p SliceTraverser) Option {
+	return func(r *Type) {
+		p.SetTypeTraverser(r)
 		r.Slice = p
 	}
 }
 
-type Option func(*RecursivePrinter)
+type Option func(*Type)
 
-func NewRecursivePrinter(opts ...Option) *RecursivePrinter {
-	r := &RecursivePrinter{
+func NewType(opts ...Option) *Type {
+	r := &Type{
 		Slice: NewSlice(),
 		Named: NewNamed(),
 		Basic: NewBasic(),
 	}
-	r.Slice.SetGeneralPrinter(r)
-	r.Named.SetGeneralPrinter(r)
+	r.Slice.SetTypeTraverser(r)
+	r.Named.SetTypeTraverser(r)
 	for _, f := range opts {
 		f(r)
 	}
 	return r
 }
 
-type RecursivePrinter struct {
-	Named  NamedPrinter
-	Slice  SlicePrinter
-	Basic  BasicPrinter
+type Type struct {
+	Named NamedTraverser
+	Slice SliceTraverser
+	Basic BasicTraverser
 }
 
-func (r *RecursivePrinter) Print(a, b types.Type, aFieldPath, bFieldPath string, levelNum int) string {
+func (r *Type) Print(a, b types.Type, aFieldPath, bFieldPath string, levelNum int) string {
 	switch at := a.(type) {
 	case *types.Pointer:
 		bt, ok := b.(*types.Pointer)

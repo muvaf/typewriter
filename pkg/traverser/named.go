@@ -3,6 +3,8 @@ package typewriter
 import (
 	"fmt"
 	"go/types"
+
+	"github.com/pkg/errors"
 )
 
 func NewNamed() *Named {
@@ -17,7 +19,7 @@ func (s *Named) SetTypeTraverser(p TypeTraverser) {
 	s.Recursive = p
 }
 
-func (s *Named) Print(a, b *types.Named, aFieldPath, bFieldPath string, levelNum int) string {
+func (s *Named) Print(a, b *types.Named, aFieldPath, bFieldPath string, levelNum int) (string, error) {
 	at := a.Underlying().(*types.Struct)
 	bt := b.Underlying().(*types.Struct)
 	out := ""
@@ -36,11 +38,11 @@ func (s *Named) Print(a, b *types.Named, aFieldPath, bFieldPath string, levelNum
 		if bf == nil {
 			continue
 		}
-		fmt.Println("af type " + af.Type().String())
-		fmt.Println("af name " + af.Name())
-		fmt.Println("bf type " + bf.Type().String())
-		fmt.Println("bf name " + bf.Name())
-		out += s.Recursive.Print(af.Type(), bf.Type(), fmt.Sprintf("%s.%s", aFieldPath, af.Name()), fmt.Sprintf("%s.%s", bFieldPath, bf.Name()), levelNum)
+		add, err := s.Recursive.Print(af.Type(), bf.Type(), fmt.Sprintf("%s.%s", aFieldPath, af.Name()), fmt.Sprintf("%s.%s", bFieldPath, bf.Name()), levelNum)
+		if err != nil {
+			return "", errors.Wrap(err, "cannot recursively traverse field of named type")
+		}
+		out += add
 	}
-	return out
+	return out, nil
 }

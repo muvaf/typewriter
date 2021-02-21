@@ -2,9 +2,10 @@ package typewriter
 
 import (
 	"fmt"
-	"github.com/pkg/errors"
 	"go/types"
 	"strings"
+
+	"github.com/pkg/errors"
 )
 
 func NewSlice() *Slice {
@@ -12,8 +13,11 @@ func NewSlice() *Slice {
 }
 
 const DefaultFmtSliceWrapper = `
-for %s := range %s {
-$a
+if len($a) != 0 {
+  $b := make($typeb, len($a))
+  for $index := range $a {
+    $statement
+  }
 }
 `
 
@@ -27,7 +31,14 @@ func (s *Slice) SetTypeTraverser(p TypeTraverser) {
 
 func (s *Slice) Print(a, b *types.Slice, aFieldPath, bFieldPath string, levelNum int) (string, error) {
 	index := fmt.Sprintf("v%d", levelNum)
-	out := fmt.Sprintf(DefaultFmtSliceWrapper, index, bFieldPath)
 	statement, err := s.Recursive.Print(a.Elem(), b.Elem(), fmt.Sprintf("%s[%s]", aFieldPath, index), fmt.Sprintf("%s[%s]", bFieldPath, index), levelNum+1)
-	return strings.ReplaceAll(out, "$a", statement), errors.Wrap(err, "cannot recursively traverse element type of slice")
+	if err != nil {
+		return "", errors.Wrap(err, "cannot recursively traverse element type of slice")
+	}
+	out := strings.ReplaceAll(DefaultFmtSliceWrapper, "$index", index)
+	out = strings.ReplaceAll(out, "$statement", statement)
+	out = strings.ReplaceAll(out, "$a", aFieldPath)
+	out = strings.ReplaceAll(out, "$b", bFieldPath)
+	out = strings.ReplaceAll(out, "$typeb", b.String())
+	return out, nil
 }

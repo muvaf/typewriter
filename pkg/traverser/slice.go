@@ -3,19 +3,22 @@ package typewriter
 import (
 	"bytes"
 	"fmt"
+	"github.com/muvaf/typewriter/pkg/imports"
 	"go/types"
 	"text/template"
 
 	"github.com/pkg/errors"
 )
 
-func NewSlice() *Slice {
-	return &Slice{}
+func NewSlice(im imports.Map) *Slice {
+	return &Slice{
+		Imports: im,
+	}
 }
 
 const DefaultSliceTmpl = `
 if len({{ .AFieldPath }}) != 0 {
-  {{ .BFieldPath }} := make({{ .TypeB }}, len({{ .AFieldPath }}))
+  {{ .BFieldPath }} = make({{ .TypeB }}, len({{ .AFieldPath }}))
   for {{ .Index }} := range {{ .AFieldPath }} {
     {{ .Statement }}
   }
@@ -31,6 +34,7 @@ type DefaultSliceTmplInput struct {
 }
 
 type Slice struct {
+	Imports imports.Map
 	Recursive TypeTraverser
 }
 
@@ -46,9 +50,9 @@ func (s *Slice) Print(a, b *types.Slice, aFieldPath, bFieldPath string, levelNum
 	}
 	i := DefaultSliceTmplInput{
 		AFieldPath: aFieldPath,
-		TypeA:      a.String(),
+		TypeA:      s.Imports.UseType(a.String()),
 		BFieldPath: bFieldPath,
-		TypeB:      b.String(),
+		TypeB:      s.Imports.UseType(b.String()),
 		Index:      index,
 		Statement:  statement,
 	}

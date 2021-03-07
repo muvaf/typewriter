@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"github.com/muvaf/typewriter/pkg/imports"
 	"go/types"
-	"strings"
 	"text/template"
 
 	"github.com/pkg/errors"
@@ -59,14 +58,14 @@ func (f *Func) Wrap(a, b types.Type, name, content string) (string, error) {
 	default:
 		bn = b.(*types.Named)
 	}
-	anp := strings.Split(an.Obj().Pkg().Name(), "/")
-	aTypeName := fmt.Sprintf("%s%s.%s", aNamePrefix, anp[len(anp)-1], an.Obj().Name())
+	aTypeDec := f.Imports.UseType(an.String())
+	aTypeName := fmt.Sprintf("%s%s", aNamePrefix, aTypeDec)
 	aNewStatement := fmt.Sprintf("%s{}", aTypeName)
 	if aNamePrefix == "*" {
 		aNewStatement = fmt.Sprintf("&%s", aNewStatement)
 	}
-	bnp := strings.Split(bn.Obj().Pkg().Name(), "/")
-	bTypeName := fmt.Sprintf("%s%s.%s", bNamePrefix, bnp[len(anp)-1], an.Obj().Name())
+	bTypeDec := f.Imports.UseType(bn.String())
+	bTypeName := fmt.Sprintf("%s%s", bNamePrefix, bTypeDec)
 	bNewStatement := fmt.Sprintf("%s{}", bTypeName)
 	if bNamePrefix == "*" {
 		bNewStatement = fmt.Sprintf("&%s", bNewStatement)

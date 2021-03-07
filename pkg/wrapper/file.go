@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/muvaf/typewriter/pkg/imports"
 	"io/ioutil"
+	"strings"
 	"text/template"
 
 	"github.com/pkg/errors"
@@ -59,9 +60,14 @@ type File struct {
 }
 
 // Wrap writes the objects to the file one by one.
-func (f *File) Wrap(packageName string, objects ...string) (string, error) {
+func (f *File) Wrap(packageName string, objects ...string) ([]byte, error) {
 	importStatements := ""
 	for p, a := range f.Imports {
+		pa := strings.Split(p, "/")
+		if pa[len(pa)-1] == a {
+			importStatements += fmt.Sprintf("\"%s\"\n", p)
+			continue
+		}
 		importStatements += fmt.Sprintf("%s \"%s\"\n", a, p)
 	}
 	content := ""
@@ -70,7 +76,7 @@ func (f *File) Wrap(packageName string, objects ...string) (string, error) {
 	}
 	header, err := ioutil.ReadFile(f.HeaderPath)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	ts := DefaultFileTmplInput{
 		Header:      string(header),
@@ -80,9 +86,9 @@ func (f *File) Wrap(packageName string, objects ...string) (string, error) {
 	}
 	t, err := template.New("file").Parse(DefaultFileTmpl)
 	if err != nil {
-		return "", errors.Wrap(err, "cannot parse template")
+		return nil, errors.Wrap(err, "cannot parse template")
 	}
 	result := &bytes.Buffer{}
 	err = t.Execute(result, ts)
-	return string(result.Bytes()), errors.Wrap(err, "cannot execute template")
+	return result.Bytes(), errors.Wrap(err, "cannot execute template")
 }

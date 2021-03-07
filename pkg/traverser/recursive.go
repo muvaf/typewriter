@@ -54,7 +54,7 @@ type Option func(*Type)
 func NewType(im imports.Map, opts ...Option) *Type {
 	r := &Type{
 		Imports: im,
-		Slice: NewSlice(),
+		Slice: NewSlice(im),
 		Named: NewNamed(),
 		Basic: NewBasic(),
 	}

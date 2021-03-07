@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"github.com/muvaf/typewriter/pkg/imports"
 	"io/ioutil"
-	"strings"
 	"text/template"
 
 	"github.com/pkg/errors"
@@ -63,11 +62,9 @@ type File struct {
 func (f *File) Wrap(packageName string, objects ...string) ([]byte, error) {
 	importStatements := ""
 	for p, a := range f.Imports {
-		pa := strings.Split(p, "/")
-		if pa[len(pa)-1] == a {
-			importStatements += fmt.Sprintf("\"%s\"\n", p)
-			continue
-		}
+		// We always use an alias because package name does not necessarily equal
+		// to that the last word in the path, hence it's not completely safe to
+		// not use an alias even though there is no conflict.
 		importStatements += fmt.Sprintf("%s \"%s\"\n", a, p)
 	}
 	content := ""

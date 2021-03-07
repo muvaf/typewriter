@@ -1,9 +1,12 @@
 package typewriter
 
 import (
+	"bytes"
 	"fmt"
 	"go/types"
-	"strings"
+	"text/template"
+
+	"github.com/pkg/errors"
 )
 
 const (
@@ -11,32 +14,30 @@ const (
 	errFmtUnknownKind = "unknown basic kind: %s"
 )
 
-func WithAssignmentTmpl(kind types.BasicKind, tmpl string) BasicOption {
+func WithTmpl(kind types.BasicKind, tmpl string) BasicOption {
 	return func(b *Basic) {
 		b.Templates[kind] = tmpl
-	}
-}
-
-func WithDefaultAssignmentTmpl(tmpl string) BasicOption {
-	return func(b *Basic) {
-		for i := 1; i < 26; i++ {
-			b.Templates[types.BasicKind(i)] = tmpl
-		}
 	}
 }
 
 type BasicOption func(*Basic)
 
 const (
-	DefaultAssignmentTmpl = "$a = $b"
+	AssignmentTmpl = `
+{{ .AFieldPath }} = {{ .BFieldPath }}`
 )
+
+type AssignmentTmplInput struct {
+	AFieldPath string
+	BFieldPath string
+}
 
 func NewBasic(opts ...BasicOption) *Basic {
 	b := &Basic{
 		Templates: map[types.BasicKind]string{},
 	}
 	for i := 1; i < 26; i++ {
-		b.Templates[types.BasicKind(i)] = DefaultAssignmentTmpl
+		b.Templates[types.BasicKind(i)] = AssignmentTmpl
 	}
 	for _, f := range opts {
 		f(b)
@@ -52,11 +53,19 @@ func (s *Basic) Print(a, b *types.Basic, aFieldPath, bFieldPath string) (string,
 	if a.Kind() != b.Kind() {
 		return "", fmt.Errorf(errFmtNotSameKind, a.String(), b.String())
 	}
-	result, ok := s.Templates[a.Kind()]
+	tmpl, ok := s.Templates[a.Kind()]
 	if !ok {
 		return "", fmt.Errorf(errFmtUnknownKind, a.String())
 	}
-	result = strings.ReplaceAll(result, "$a", aFieldPath)
-	result = strings.ReplaceAll(result, "$b", bFieldPath)
-	return result + "\n", nil
+	i := AssignmentTmplInput{
+		AFieldPath: aFieldPath,
+		BFieldPath: bFieldPath,
+	}
+	t, err := template.New("basic").Parse(tmpl)
+	if err != nil {
+		return "", errors.Wrap(err, "cannot parse template")
+	}
+	result := &bytes.Buffer{}
+	err = t.Execute(result, i)
+	return string(result.Bytes()), errors.Wrap(err, "cannot execute template")
 }

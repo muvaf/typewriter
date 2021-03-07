@@ -3,6 +3,7 @@ package wrapper
 import (
 	"bytes"
 	"fmt"
+	"github.com/muvaf/typewriter/pkg/imports"
 	"go/types"
 	"strings"
 	"text/template"
@@ -10,27 +11,33 @@ import (
 	"github.com/pkg/errors"
 )
 
-const DefaultGenerator = `
+const DefaultFuncTmpl = `
+// {{ .FunctionName }} returns a new {{ .BTypeName }} with the information from
+// given {{ .ATypeName }}.
 func {{ .FunctionName }}(a {{ .ATypeName }}) {{ .BTypeName }} {
   b := {{ .BTypeNewStatement }}
   {{ .Content }}
   return b
-}
-`
+}`
 
-type DefaultGeneratorStruct struct {
+type DefaultFuncTmplInput struct {
 	FunctionName      string
 	ATypeName         string
+	ATypeNewStatement string
 	BTypeName         string
 	BTypeNewStatement string
 	Content           string
 }
 
-func NewFunc() *Func {
-	return &Func{}
+func NewFunc(im imports.Map) *Func {
+	return &Func{
+		Imports: im,
+	}
 }
 
-type Func struct{}
+type Func struct{
+	Imports imports.Map
+}
 
 // Wrap assumes that packages are imported with the same name.
 func (f *Func) Wrap(a, b types.Type, name, content string) (string, error) {
@@ -64,14 +71,15 @@ func (f *Func) Wrap(a, b types.Type, name, content string) (string, error) {
 	if bNamePrefix == "*" {
 		bNewStatement = fmt.Sprintf("&%s", bNewStatement)
 	}
-	ts := DefaultGeneratorStruct{
+	ts := DefaultFuncTmplInput{
 		FunctionName:      name,
 		ATypeName:         aTypeName,
+		ATypeNewStatement: aNewStatement,
 		BTypeName:         bTypeName,
 		BTypeNewStatement: bNewStatement,
 		Content:           content,
 	}
-	t, err := template.New("func").Parse(DefaultGenerator)
+	t, err := template.New("func").Parse(DefaultFuncTmpl)
 	if err != nil {
 		return "", errors.Wrap(err, "cannot parse template")
 	}

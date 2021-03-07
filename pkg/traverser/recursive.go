@@ -2,6 +2,7 @@ package typewriter
 
 import (
 	"fmt"
+	"github.com/muvaf/typewriter/pkg/imports"
 	"github.com/pkg/errors"
 	"go/types"
 )
@@ -50,21 +51,23 @@ func WithSlice(p SliceTraverser) Option {
 
 type Option func(*Type)
 
-func NewType(opts ...Option) *Type {
+func NewType(im imports.Map, opts ...Option) *Type {
 	r := &Type{
+		Imports: im,
 		Slice: NewSlice(),
 		Named: NewNamed(),
 		Basic: NewBasic(),
 	}
-	r.Slice.SetTypeTraverser(r)
-	r.Named.SetTypeTraverser(r)
 	for _, f := range opts {
 		f(r)
 	}
+	r.Slice.SetTypeTraverser(r)
+	r.Named.SetTypeTraverser(r)
 	return r
 }
 
 type Type struct {
+	Imports imports.Map
 	Named NamedTraverser
 	Slice SliceTraverser
 	Basic BasicTraverser

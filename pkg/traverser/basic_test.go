@@ -53,7 +53,7 @@ func TestPrint(t *testing.T) {
 				bPath: "b",
 			},
 			want: want{
-				out: "a = b\n",
+				out: "\na = b",
 			},
 		},
 		"ErrTypeMismatch": {
@@ -71,7 +71,7 @@ func TestPrint(t *testing.T) {
 	}
 	for name, tc := range cases {
 		t.Run(name, func(t *testing.T) {
-			b := NewBasic(WithAssignmentTmpl(types.String, DefaultAssignmentTmpl))
+			b := NewBasic(WithTmpl(types.String, AssignmentTmpl))
 			result, err := b.Print(tc.args.a, tc.args.b, tc.args.aPath, tc.args.bPath)
 			if diff := cmp.Diff(tc.want.err, err, test.EquateErrors()); diff != "" {
 				t.Errorf("add: -want, +got:\n%s", diff)

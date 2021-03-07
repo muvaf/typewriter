@@ -1,9 +1,10 @@
 package typewriter
 
 import (
+	"bytes"
 	"fmt"
 	"go/types"
-	"strings"
+	"text/template"
 
 	"github.com/pkg/errors"
 )
@@ -12,14 +13,22 @@ func NewSlice() *Slice {
 	return &Slice{}
 }
 
-const DefaultFmtSliceWrapper = `
-if len($a) != 0 {
-  $b := make($typeb, len($a))
-  for $index := range $a {
-    $statement
+const DefaultSliceTmpl = `
+if len({{ .AFieldPath }}) != 0 {
+  {{ .BFieldPath }} := make({{ .TypeB }}, len({{ .AFieldPath }}))
+  for {{ .Index }} := range {{ .AFieldPath }} {
+    {{ .Statement }}
   }
+}`
+
+type DefaultSliceTmplInput struct {
+	AFieldPath string
+	TypeA      string
+	BFieldPath string
+	TypeB      string
+	Index      string
+	Statement  string
 }
-`
 
 type Slice struct {
 	Recursive TypeTraverser
@@ -35,10 +44,19 @@ func (s *Slice) Print(a, b *types.Slice, aFieldPath, bFieldPath string, levelNum
 	if err != nil {
 		return "", errors.Wrap(err, "cannot recursively traverse element type of slice")
 	}
-	out := strings.ReplaceAll(DefaultFmtSliceWrapper, "$index", index)
-	out = strings.ReplaceAll(out, "$statement", statement)
-	out = strings.ReplaceAll(out, "$a", aFieldPath)
-	out = strings.ReplaceAll(out, "$b", bFieldPath)
-	out = strings.ReplaceAll(out, "$typeb", b.String())
-	return out, nil
+	i := DefaultSliceTmplInput{
+		AFieldPath: aFieldPath,
+		TypeA:      a.String(),
+		BFieldPath: bFieldPath,
+		TypeB:      b.String(),
+		Index:      index,
+		Statement:  statement,
+	}
+	t, err := template.New("func").Parse(DefaultSliceTmpl)
+	if err != nil {
+		return "", errors.Wrap(err, "cannot parse template")
+	}
+	result := &bytes.Buffer{}
+	err = t.Execute(result, i)
+	return string(result.Bytes()), errors.Wrap(err, "cannot execute template")
 }

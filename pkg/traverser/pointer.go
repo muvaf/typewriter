@@ -2,16 +2,16 @@ package traverser
 
 import (
 	"bytes"
-	"fmt"
 	"github.com/muvaf/typewriter/pkg/imports"
 	"go/types"
+	"strings"
 	"text/template"
 
 	"github.com/pkg/errors"
 )
 
-func NewMap(im imports.Map) *Map {
-	return &Map{
+func NewPointer(im imports.Map) *Pointer {
+	return &Pointer{
 		Imports: im,
 	}
 }
@@ -20,48 +20,46 @@ func NewMap(im imports.Map) *Map {
 // each line has their own tab space. Hence it only helps the first line, which
 // is empty anyway.
 
-const DefaultMapTmpl = `
-if len({{ .AFieldPath }}) != 0 {
-  {{ .BFieldPath }} = make({{ .TypeB }}, len({{ .AFieldPath }}))
-  for {{ .Key }} := range {{ .AFieldPath }} {
+const DefaultPointerTmpl = `
+if {{ .AFieldPath }} != nil {
+  {{ .BFieldPath }} = new({{ .NonPointerTypeB }})
 {{ .Statements }}
-  }
 }`
 
-type DefaultMapTmplInput struct {
+type DefaultPointerTmplInput struct {
 	AFieldPath string
 	TypeA      string
+	NonPointerTypeA      string
 	BFieldPath string
 	TypeB      string
-	Key      string
-	Value      string
+	NonPointerTypeB      string
 	Statements  string
 }
 
-type Map struct {
+type Pointer struct {
 	Imports imports.Map
 	Recursive TypeTraverser
 }
 
-func (s *Map) SetTypeTraverser(p TypeTraverser) {
+func (s *Pointer) SetTypeTraverser(p TypeTraverser) {
 	s.Recursive = p
 }
 
-func (s *Map) Print(a, b *types.Map, aFieldPath, bFieldPath string, levelNum int) (string, error) {
-	key := fmt.Sprintf("k%d", levelNum)
-	statements, err := s.Recursive.Print(a.Elem(), b.Elem(), fmt.Sprintf("%s[%s]", aFieldPath, key), fmt.Sprintf("%s[%s]", bFieldPath, key), levelNum+1)
+func (s *Pointer) Print(a, b *types.Pointer, aFieldPath, bFieldPath string, levelNum int) (string, error) {
+	statements, err := s.Recursive.Print(a.Elem(), b.Elem(), aFieldPath, bFieldPath, levelNum)
 	if err != nil {
-		return "", errors.Wrap(err, "cannot recursively traverse element type of slice")
+		return "", errors.Wrap(err, "cannot recursively traverse element type of pointer")
 	}
-	i := DefaultMapTmplInput{
+	i := DefaultPointerTmplInput{
 		AFieldPath: aFieldPath,
 		TypeA:      s.Imports.UseType(a.String()),
+		NonPointerTypeA:      strings.TrimPrefix(s.Imports.UseType(a.String()), "*"),
 		BFieldPath: bFieldPath,
 		TypeB:      s.Imports.UseType(b.String()),
-		Key:      key,
+		NonPointerTypeB:      strings.TrimPrefix(s.Imports.UseType(b.String()), "*"),
 		Statements:  statements,
 	}
-	t, err := template.New("func").Parse(DefaultMapTmpl)
+	t, err := template.New("func").Parse(DefaultPointerTmpl)
 	if err != nil {
 		return "", errors.Wrap(err, "cannot parse template")
 	}

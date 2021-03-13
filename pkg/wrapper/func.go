@@ -15,7 +15,7 @@ const DefaultFuncTmpl = `
 // given {{ .ATypeName }}.
 func {{ .FunctionName }}(a {{ .ATypeName }}) {{ .BTypeName }} {
   b := {{ .BTypeNewStatement }}
-  {{ .Content }}
+{{ .Content }}
   return b
 }`
 

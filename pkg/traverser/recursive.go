@@ -30,6 +30,11 @@ type MapTraverser interface {
 	Print(a, b *types.Map, aFieldPath, bFieldPath string, levelNum int) (string, error)
 }
 
+type PointerTraverser interface {
+	RecursiveCaller
+	Print(a, b *types.Pointer, aFieldPath, bFieldPath string, levelNum int) (string, error)
+}
+
 type BasicTraverser interface {
 	Print(a, b *types.Basic, aFieldPath, bFieldPath string) (string, error)
 }
@@ -63,6 +68,7 @@ func NewType(im imports.Map, opts ...Option) *Type {
 		Named: NewNamed(),
 		Basic: NewBasic(),
 		Map: NewMap(im),
+		Pointer: NewPointer(im),
 	}
 	for _, f := range opts {
 		f(r)
@@ -70,6 +76,7 @@ func NewType(im imports.Map, opts ...Option) *Type {
 	r.Slice.SetTypeTraverser(r)
 	r.Map.SetTypeTraverser(r)
 	r.Named.SetTypeTraverser(r)
+	r.Pointer.SetTypeTraverser(r)
 	return r
 }
 
@@ -79,6 +86,7 @@ type Type struct {
 	Slice SliceTraverser
 	Basic BasicTraverser
 	Map MapTraverser
+	Pointer PointerTraverser
 }
 
 func (r *Type) Print(a, b types.Type, aFieldPath, bFieldPath string, levelNum int) (string, error) {
@@ -88,8 +96,8 @@ func (r *Type) Print(a, b types.Type, aFieldPath, bFieldPath string, levelNum in
 		if !ok {
 			return "", fmt.Errorf("not same type at %s", bFieldPath)
 		}
-		o, err := r.Print(at.Elem(), bt.Elem(), aFieldPath, bFieldPath, levelNum)
-		return o, errors.Wrap(err, "cannot recursively traverse actual type of pointer type")
+		o, err := r.Pointer.Print(at, bt, aFieldPath, bFieldPath, levelNum)
+		return o, errors.Wrap(err, "cannot traverse pointer type")
 	case *types.Slice:
 		bt, ok := b.(*types.Slice)
 		if !ok {

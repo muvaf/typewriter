@@ -20,7 +20,7 @@ const DefaultSliceTmpl = `
 if len({{ .AFieldPath }}) != 0 {
   {{ .BFieldPath }} = make({{ .TypeB }}, len({{ .AFieldPath }}))
   for {{ .Index }} := range {{ .AFieldPath }} {
-    {{ .Statement }}
+{{ .Statements }}
   }
 }`
 
@@ -30,7 +30,7 @@ type DefaultSliceTmplInput struct {
 	BFieldPath string
 	TypeB      string
 	Index      string
-	Statement  string
+	Statements  string
 }
 
 type Slice struct {
@@ -44,7 +44,7 @@ func (s *Slice) SetTypeTraverser(p TypeTraverser) {
 
 func (s *Slice) Print(a, b *types.Slice, aFieldPath, bFieldPath string, levelNum int) (string, error) {
 	index := fmt.Sprintf("v%d", levelNum)
-	statement, err := s.Recursive.Print(a.Elem(), b.Elem(), fmt.Sprintf("%s[%s]", aFieldPath, index), fmt.Sprintf("%s[%s]", bFieldPath, index), levelNum+1)
+	statements, err := s.Recursive.Print(a.Elem(), b.Elem(), fmt.Sprintf("%s[%s]", aFieldPath, index), fmt.Sprintf("%s[%s]", bFieldPath, index), levelNum+1)
 	if err != nil {
 		return "", errors.Wrap(err, "cannot recursively traverse element type of slice")
 	}
@@ -54,7 +54,7 @@ func (s *Slice) Print(a, b *types.Slice, aFieldPath, bFieldPath string, levelNum
 		BFieldPath: bFieldPath,
 		TypeB:      s.Imports.UseType(b.String()),
 		Index:      index,
-		Statement:  statement,
+		Statements:  statements,
 	}
 	t, err := template.New("func").Parse(DefaultSliceTmpl)
 	if err != nil {

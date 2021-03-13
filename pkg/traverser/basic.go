@@ -24,7 +24,7 @@ type BasicOption func(*Basic)
 
 const (
 	AssignmentTmpl = `
-{{ .AFieldPath }} = {{ .BFieldPath }}`
+{{ .BFieldPath }} = {{ .AFieldPath }}`
 )
 
 type AssignmentTmplInput struct {

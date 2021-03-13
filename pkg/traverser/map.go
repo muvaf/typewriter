@@ -10,12 +10,6 @@ import (
 	"github.com/pkg/errors"
 )
 
-func NewMap(im imports.Map) *Map {
-	return &Map{
-		Imports: im,
-	}
-}
-
 // NOTE(muvaf): Statement should not have any tabs because it is multi-line and
 // each line has their own tab space. Hence it only helps the first line, which
 // is empty anyway.
@@ -38,30 +32,42 @@ type DefaultMapTmplInput struct {
 	Statements  string
 }
 
+func NewMap(im imports.Map) *Map {
+	return &Map{
+		Template: DefaultMapTmpl,
+		Imports: im,
+	}
+}
+
 type Map struct {
-	Imports imports.Map
-	Recursive TypeTraverser
+	Template string
+	Imports   imports.Map
+	Recursive GenericTraverser
 }
 
-func (s *Map) SetTypeTraverser(p TypeTraverser) {
-	s.Recursive = p
+func (m *Map) SetTemplate(t string) {
+	m.Template = t
 }
 
-func (s *Map) Print(a, b *types.Map, aFieldPath, bFieldPath string, levelNum int) (string, error) {
+func (m *Map) SetGenericTraverser(p GenericTraverser) {
+	m.Recursive = p
+}
+
+func (m *Map) Print(a, b *types.Map, aFieldPath, bFieldPath string, levelNum int) (string, error) {
 	key := fmt.Sprintf("k%d", levelNum)
-	statements, err := s.Recursive.Print(a.Elem(), b.Elem(), fmt.Sprintf("%s[%s]", aFieldPath, key), fmt.Sprintf("%s[%s]", bFieldPath, key), levelNum+1)
+	statements, err := m.Recursive.Print(a.Elem(), b.Elem(), fmt.Sprintf("%s[%s]", aFieldPath, key), fmt.Sprintf("%s[%s]", bFieldPath, key), levelNum+1)
 	if err != nil {
 		return "", errors.Wrap(err, "cannot recursively traverse element type of slice")
 	}
 	i := DefaultMapTmplInput{
 		AFieldPath: aFieldPath,
-		TypeA:      s.Imports.UseType(a.String()),
+		TypeA:      m.Imports.UseType(a.String()),
 		BFieldPath: bFieldPath,
-		TypeB:      s.Imports.UseType(b.String()),
-		Key:      key,
-		Statements:  statements,
+		TypeB:      m.Imports.UseType(b.String()),
+		Key:        key,
+		Statements: statements,
 	}
-	t, err := template.New("func").Parse(DefaultMapTmpl)
+	t, err := template.New("func").Parse(m.Template)
 	if err != nil {
 		return "", errors.Wrap(err, "cannot parse template")
 	}

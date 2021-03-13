@@ -12,10 +12,10 @@ func NewNamed() *Named {
 }
 
 type Named struct {
-	Recursive TypeTraverser
+	Recursive GenericTraverser
 }
 
-func (s *Named) SetTypeTraverser(p TypeTraverser) {
+func (s *Named) SetGenericTraverser(p GenericTraverser) {
 	s.Recursive = p
 }
 

@@ -10,12 +10,6 @@ import (
 	"github.com/pkg/errors"
 )
 
-func NewSlice(im imports.Map) *Slice {
-	return &Slice{
-		Imports: im,
-	}
-}
-
 const DefaultSliceTmpl = `
 if len({{ .AFieldPath }}) != 0 {
   {{ .BFieldPath }} = make({{ .TypeB }}, len({{ .AFieldPath }}))
@@ -24,7 +18,7 @@ if len({{ .AFieldPath }}) != 0 {
   }
 }`
 
-type DefaultSliceTmplInput struct {
+type SliceTmplInput struct {
 	AFieldPath string
 	TypeA      string
 	BFieldPath string
@@ -33,22 +27,34 @@ type DefaultSliceTmplInput struct {
 	Statements  string
 }
 
-type Slice struct {
-	Imports imports.Map
-	Recursive TypeTraverser
+func NewSlice(im imports.Map) *Slice {
+	return &Slice{
+		Imports: im,
+		Template: DefaultSliceTmpl,
+	}
 }
 
-func (s *Slice) SetTypeTraverser(p TypeTraverser) {
-	s.Recursive = p
+type Slice struct {
+	Template string
+	Imports  imports.Map
+	Generic  GenericTraverser
+}
+
+func (s *Slice) SetTemplate(t string) {
+	s.Template = t
+}
+
+func (s *Slice) SetGenericTraverser(p GenericTraverser) {
+	s.Generic = p
 }
 
 func (s *Slice) Print(a, b *types.Slice, aFieldPath, bFieldPath string, levelNum int) (string, error) {
 	index := fmt.Sprintf("v%d", levelNum)
-	statements, err := s.Recursive.Print(a.Elem(), b.Elem(), fmt.Sprintf("%s[%s]", aFieldPath, index), fmt.Sprintf("%s[%s]", bFieldPath, index), levelNum+1)
+	statements, err := s.Generic.Print(a.Elem(), b.Elem(), fmt.Sprintf("%s[%s]", aFieldPath, index), fmt.Sprintf("%s[%s]", bFieldPath, index), levelNum+1)
 	if err != nil {
 		return "", errors.Wrap(err, "cannot recursively traverse element type of slice")
 	}
-	i := DefaultSliceTmplInput{
+	i := SliceTmplInput{
 		AFieldPath: aFieldPath,
 		TypeA:      s.Imports.UseType(a.String()),
 		BFieldPath: bFieldPath,
@@ -56,7 +62,7 @@ func (s *Slice) Print(a, b *types.Slice, aFieldPath, bFieldPath string, levelNum
 		Index:      index,
 		Statements:  statements,
 	}
-	t, err := template.New("func").Parse(DefaultSliceTmpl)
+	t, err := template.New("func").Parse(s.Template)
 	if err != nil {
 		return "", errors.Wrap(err, "cannot parse template")
 	}

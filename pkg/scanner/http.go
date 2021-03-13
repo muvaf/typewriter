@@ -2,6 +2,12 @@ package scanner
 
 import "go/types"
 
+func WithIgnoreFns(f ...IgnoreFieldFn) Option {
+	return func(rc *RemoteCalls) {
+		rc.ignore = f
+	}
+}
+
 func WithReadCalls(s []string) Option {
 	return func(r *RemoteCalls) {
 		for _, typeName := range s {
@@ -50,48 +56,86 @@ func NewRemoteCalls(s *types.Scope, opts ...Option) *RemoteCalls {
 	return r
 }
 
+type IgnoreFieldFn func(*types.Var) bool
+
+type IgnoreFieldChain []IgnoreFieldFn
+
+func (i IgnoreFieldChain) ShouldIgnore(v *types.Var) bool {
+	for _, f := range i {
+		if f(v) {
+			return true
+		}
+	}
+	return false
+}
+
 type RemoteCalls struct {
-	scope          *types.Scope
+	scope  *types.Scope
+	ignore IgnoreFieldChain // TODO(muvaf): we'll need param/status differentiation.
 
 	CreationInput  *types.Named
 	UpdateInputs   []*types.Named
 	DeletionInputs []*types.Named
 
-	ReadOutputs    []*types.Named
+	ReadOutputs []*types.Named
 }
 
-func (r *RemoteCalls) GetParameterFields() map[string]*types.Var {
+func (r *RemoteCalls) AggregatedInput() *types.Struct {
 	varMap := map[string]*types.Var{}
 	c := r.CreationInput.Underlying().(*types.Struct)
 	for i := 0; i < c.NumFields(); i++ {
+		if r.ignore.ShouldIgnore(c.Field(i)) {
+			continue
+		}
 		varMap[c.Field(i).Name()] = c.Field(i)
 	}
 	for _, upd := range r.UpdateInputs {
 		u := upd.Underlying().(*types.Struct)
 		for i := 0; i < u.NumFields(); i++ {
+			if r.ignore.ShouldIgnore(u.Field(i)) {
+				continue
+			}
 			varMap[u.Field(i).Name()] = u.Field(i)
 		}
 	}
 	for _, del := range r.DeletionInputs {
 		d := del.Underlying().(*types.Struct)
 		for i := 0; i < d.NumFields(); i++ {
+			if r.ignore.ShouldIgnore(d.Field(i)) {
+				continue
+			}
 			varMap[d.Field(i).Name()] = d.Field(i)
 		}
 	}
-	return varMap
+	fields := make([]*types.Var, len(varMap))
+	i := 0
+	for _, v := range varMap {
+		fields[i] = v
+		i++
+	}
+	return types.NewStruct(fields, nil)
 }
 
-func (r *RemoteCalls) GetObservationFields() map[string]*types.Var {
+func (r *RemoteCalls) AggregatedOutput() *types.Struct {
 	varMap := map[string]*types.Var{}
 	for _, re := range r.ReadOutputs {
-		u := re.Underlying().(*types.Struct)
-		for i := 0; i < u.NumFields(); i++ {
-			varMap[u.Field(i).Name()] = u.Field(i)
+		ro := re.Underlying().(*types.Struct)
+		for i := 0; i < ro.NumFields(); i++ {
+			if r.ignore.ShouldIgnore(ro.Field(i)) {
+				continue
+			}
+			varMap[ro.Field(i).Name()] = ro.Field(i)
 		}
 	}
-	params := r.GetParameterFields()
-	for k := range params {
-		delete(varMap, k)
+	params := r.AggregatedInput()
+	for i := 0; i < params.NumFields(); i++ {
+		delete(varMap, params.Field(i).Name())
 	}
-	return varMap
+	fields := make([]*types.Var, len(varMap))
+	i := 0
+	for _, v := range varMap {
+		fields[i] = v
+		i++
+	}
+	return types.NewStruct(fields, nil)
 }

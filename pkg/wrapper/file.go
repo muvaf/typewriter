@@ -3,10 +3,11 @@ package wrapper
 import (
 	"bytes"
 	"fmt"
-	"github.com/muvaf/typewriter/pkg/imports"
 	"io/ioutil"
 	"strings"
 	"text/template"
+
+	"github.com/muvaf/typewriter/pkg/imports"
 
 	"github.com/pkg/errors"
 )
@@ -36,17 +37,12 @@ func WithHeaderPath(h string) FileOption {
 	}
 }
 
-func WithImports(i imports.Map) FileOption {
-	return func(f *File) {
-		f.Imports = i
-	}
-}
-
 type FileOption func(*File)
 
-func NewFile(opts ...FileOption) *File {
+func NewFile(pkg string, opts ...FileOption) *File {
 	f := &File{
-		Imports: imports.Map{},
+		Package: pkg,
+		Imports: imports.NewMap(pkg),
 	}
 	for _, fn := range opts {
 		fn(f)
@@ -55,14 +51,15 @@ func NewFile(opts ...FileOption) *File {
 }
 
 type File struct {
-	HeaderPath  string
-	Imports imports.Map
+	HeaderPath string
+	Package    string
+	Imports    *imports.Map
 }
 
 // Wrap writes the objects to the file one by one.
-func (f *File) Wrap(packageName string, objects ...string) ([]byte, error) {
+func (f *File) Wrap(objects ...string) ([]byte, error) {
 	importStatements := ""
-	for p, a := range f.Imports {
+	for p, a := range f.Imports.Imports {
 		// We always use an alias because package name does not necessarily equal
 		// to that the last word in the path, hence it's not completely safe to
 		// not use an alias even though there is no conflict.
@@ -78,7 +75,7 @@ func (f *File) Wrap(packageName string, objects ...string) ([]byte, error) {
 	}
 	ts := DefaultFileTmplInput{
 		Header:      string(header),
-		PackageName: packageName,
+		PackageName: f.Package,
 		Imports:     importStatements,
 		Content:     content,
 	}

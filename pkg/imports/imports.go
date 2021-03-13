@@ -5,28 +5,42 @@ import (
 	"strings"
 )
 
-type Map map[string]string
+func NewMap(selfPackage string) *Map {
+	return &Map{
+		Package: selfPackage,
+		Imports: map[string]string{},
+	}
+}
+
+type Map struct {
+	Package string
+	Imports map[string]string
+}
 
 // TODO(muvaf): We could make this routine-safe but it's not necessary for now.
 
 // UseType adds the package to the import map and returns the alias you
 // can use in that Go file.
-func (m Map) UseType(in string) string {
+func (m *Map) UseType(in string) string {
 	pkg, typeNameFmt := parseTypeDec(in)
 	if isBuiltIn(typeNameFmt) {
 		return in
 	}
-	val, ok := m[pkg]
+	if pkg == m.Package {
+		// this is a hack of my own code :(
+		return strings.ReplaceAll(typeNameFmt, "%s.", "")
+	}
+	val, ok := m.Imports[pkg]
 	if ok {
 		return fmt.Sprintf(typeNameFmt, val)
 	}
 	tmp := map[string]struct{}{}
-	for _, a := range m {
+	for _, a := range m.Imports {
 		tmp[a] = struct{}{}
 	}
 	words := strings.Split(pkg, "/")
 	alias := words[len(words)-1]
-	for i := len(words)-2; i >= 0; i-- {
+	for i := len(words) - 2; i >= 0; i-- {
 		if _, ok := tmp[alias]; !ok {
 			break
 		}
@@ -36,7 +50,7 @@ func (m Map) UseType(in string) string {
 	// the for loop above has to find a meaningful result before running out.
 	// The ReplaceAll statement is pinching hole in this completeness, but considering
 	// the paths are URLs, replacing dot with nothing should be fine.
-	m[pkg] = alias
+	m.Imports[pkg] = alias
 	return fmt.Sprintf(typeNameFmt, alias)
 }
 

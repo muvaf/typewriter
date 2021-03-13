@@ -1,4 +1,4 @@
-package typewriter
+package traverser
 
 import (
 	"fmt"
@@ -23,6 +23,11 @@ type NamedTraverser interface {
 type SliceTraverser interface {
 	RecursiveCaller
 	Print(a, b *types.Slice, aFieldPath, bFieldPath string, levelNum int) (string, error)
+}
+
+type MapTraverser interface {
+	RecursiveCaller
+	Print(a, b *types.Map, aFieldPath, bFieldPath string, levelNum int) (string, error)
 }
 
 type BasicTraverser interface {
@@ -57,11 +62,13 @@ func NewType(im imports.Map, opts ...Option) *Type {
 		Slice: NewSlice(im),
 		Named: NewNamed(),
 		Basic: NewBasic(),
+		Map: NewMap(im),
 	}
 	for _, f := range opts {
 		f(r)
 	}
 	r.Slice.SetTypeTraverser(r)
+	r.Map.SetTypeTraverser(r)
 	r.Named.SetTypeTraverser(r)
 	return r
 }
@@ -71,6 +78,7 @@ type Type struct {
 	Named NamedTraverser
 	Slice SliceTraverser
 	Basic BasicTraverser
+	Map MapTraverser
 }
 
 func (r *Type) Print(a, b types.Type, aFieldPath, bFieldPath string, levelNum int) (string, error) {
@@ -89,6 +97,13 @@ func (r *Type) Print(a, b types.Type, aFieldPath, bFieldPath string, levelNum in
 		}
 		o, err := r.Slice.Print(at, bt, aFieldPath, bFieldPath, levelNum)
 		return o, errors.Wrap(err, "cannot traverse slice type")
+	case *types.Map:
+		bt, ok := b.(*types.Map)
+		if !ok {
+			return "", fmt.Errorf("not same type at %s", bFieldPath)
+		}
+		o, err := r.Map.Print(at, bt, aFieldPath, bFieldPath, levelNum)
+		return o, errors.Wrap(err, "cannot traverse map type")
 	case *types.Named:
 		bt, ok := b.(*types.Named)
 		if !ok {

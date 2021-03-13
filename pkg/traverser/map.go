@@ -10,53 +10,54 @@ import (
 	"github.com/pkg/errors"
 )
 
-func NewSlice(im imports.Map) *Slice {
-	return &Slice{
+func NewMap(im imports.Map) *Map {
+	return &Map{
 		Imports: im,
 	}
 }
 
-const DefaultSliceTmpl = `
+const DefaultMapTmpl = `
 if len({{ .AFieldPath }}) != 0 {
   {{ .BFieldPath }} = make({{ .TypeB }}, len({{ .AFieldPath }}))
-  for {{ .Index }} := range {{ .AFieldPath }} {
+  for {{ .Key }} := range {{ .AFieldPath }} {
     {{ .Statement }}
   }
 }`
 
-type DefaultSliceTmplInput struct {
+type DefaultMapTmplInput struct {
 	AFieldPath string
 	TypeA      string
 	BFieldPath string
 	TypeB      string
-	Index      string
+	Key      string
+	Value      string
 	Statement  string
 }
 
-type Slice struct {
+type Map struct {
 	Imports imports.Map
 	Recursive TypeTraverser
 }
 
-func (s *Slice) SetTypeTraverser(p TypeTraverser) {
+func (s *Map) SetTypeTraverser(p TypeTraverser) {
 	s.Recursive = p
 }
 
-func (s *Slice) Print(a, b *types.Slice, aFieldPath, bFieldPath string, levelNum int) (string, error) {
-	index := fmt.Sprintf("v%d", levelNum)
-	statement, err := s.Recursive.Print(a.Elem(), b.Elem(), fmt.Sprintf("%s[%s]", aFieldPath, index), fmt.Sprintf("%s[%s]", bFieldPath, index), levelNum+1)
+func (s *Map) Print(a, b *types.Map, aFieldPath, bFieldPath string, levelNum int) (string, error) {
+	key := fmt.Sprintf("k%d", levelNum)
+	statement, err := s.Recursive.Print(a.Elem(), b.Elem(), fmt.Sprintf("%s[%s]", aFieldPath, key), fmt.Sprintf("%s[%s]", bFieldPath, key), levelNum+1)
 	if err != nil {
 		return "", errors.Wrap(err, "cannot recursively traverse element type of slice")
 	}
-	i := DefaultSliceTmplInput{
+	i := DefaultMapTmplInput{
 		AFieldPath: aFieldPath,
 		TypeA:      s.Imports.UseType(a.String()),
 		BFieldPath: bFieldPath,
 		TypeB:      s.Imports.UseType(b.String()),
-		Index:      index,
+		Key:      key,
 		Statement:  statement,
 	}
-	t, err := template.New("func").Parse(DefaultSliceTmpl)
+	t, err := template.New("func").Parse(DefaultMapTmpl)
 	if err != nil {
 		return "", errors.Wrap(err, "cannot parse template")
 	}

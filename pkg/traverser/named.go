@@ -1,4 +1,4 @@
-package typewriter
+package traverser
 
 import (
 	"fmt"

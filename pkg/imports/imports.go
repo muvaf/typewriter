@@ -27,7 +27,7 @@ func (m *Map) UseType(in string) string {
 		return in
 	}
 	if pkg == m.Package {
-		// this is a hack of my own code :(
+		// this is a temp hack for my own code :(
 		return strings.ReplaceAll(typeNameFmt, "%s.", "")
 	}
 	val, ok := m.Imports[pkg]

@@ -12,12 +12,13 @@ import (
 	"github.com/pkg/errors"
 )
 
-func NewTypePrinter(originPackagePath string, rootType *Named, im *imports.Map) *TypePrinter {
+func NewTypePrinter(originPackagePath string, rootType *Named, im *imports.Map, targetScope *types.Scope) *TypePrinter {
 	return &TypePrinter{
 		OriginPackagePath: originPackagePath,
 		RootType:          rootType,
 		Imports:           im,
-		TypeMap:           map[string]*types.Struct{},
+		TypeMap:           map[string]*types.Named{},
+		TargetScope:       targetScope,
 	}
 }
 
@@ -25,7 +26,8 @@ type TypePrinter struct {
 	OriginPackagePath string
 	RootType          *Named
 	Imports           *imports.Map
-	TypeMap           map[string]*types.Struct
+	TypeMap           map[string]*types.Named
+	TargetScope       *types.Scope
 }
 
 func (tp *TypePrinter) Parse() {
@@ -40,7 +42,7 @@ func (tp *TypePrinter) load(t *types.Named) {
 	}
 	// todo: naming collisions? is it possible this function runs with multiple
 	// packages?
-	tp.TypeMap[t.Obj().Name()] = s
+	tp.TypeMap[t.Obj().Name()] = t
 	for i := 0; i < s.NumFields(); i++ {
 		ft := s.Field(i).Type()
 		switch u := ft.(type) {
@@ -99,7 +101,7 @@ type FieldTmplInput struct {
 
 func (tp *TypePrinter) Print(targetName string) (string, error) {
 	out := ""
-	for name, s := range tp.TypeMap {
+	for name, n := range tp.TypeMap {
 		ti := &TypeTmplInput{
 			Name: name,
 		}
@@ -111,6 +113,12 @@ func (tp *TypePrinter) Print(targetName string) (string, error) {
 			}
 			ti.CommentTags = commentTags
 		}
+		// If the type already exists in the package, we assume it's the same
+		// as the one we use here.
+		if tp.TargetScope.Lookup(ti.Name) != nil {
+			continue
+		}
+		s := n.Underlying().(*types.Struct)
 		for i := 0; i < s.NumFields(); i++ {
 			f := s.Field(i)
 			// The structs in the remote package are known to be copied, so the
@@ -139,6 +147,7 @@ func (tp *TypePrinter) Print(targetName string) (string, error) {
 		if err = t.Execute(result, ti); err != nil {
 			return "", errors.Wrap(err, "cannot execute templating")
 		}
+		tp.TargetScope.Insert(n.Obj())
 		out += result.String()
 	}
 	return out, nil

@@ -2,6 +2,7 @@ package scanner
 
 import (
 	"bytes"
+	"fmt"
 	"go/types"
 	"strings"
 	"text/template"
@@ -11,9 +12,10 @@ import (
 	"github.com/pkg/errors"
 )
 
-func NewTypePrinter(p string, im *imports.Map) *TypePrinter {
+func NewTypePrinter(originPackagePath string, rootType *Named, im *imports.Map) *TypePrinter {
 	return &TypePrinter{
-		OriginPackagePath: p,
+		OriginPackagePath: originPackagePath,
+		RootType:          rootType,
 		Imports:           im,
 		TypeMap:           map[string]*types.Struct{},
 	}
@@ -21,11 +23,16 @@ func NewTypePrinter(p string, im *imports.Map) *TypePrinter {
 
 type TypePrinter struct {
 	OriginPackagePath string
+	RootType          *Named
 	Imports           *imports.Map
 	TypeMap           map[string]*types.Struct
 }
 
-func (tp *TypePrinter) Load(t *types.Named) {
+func (tp *TypePrinter) Parse() {
+	tp.load(tp.RootType.Named)
+}
+
+func (tp *TypePrinter) load(t *types.Named) {
 	s, ok := t.Underlying().(*types.Struct)
 	if !ok {
 		// might be function
@@ -42,20 +49,20 @@ func (tp *TypePrinter) Load(t *types.Named) {
 			if !ok {
 				continue
 			}
-			tp.Load(n)
+			tp.load(n)
 		case *types.Slice:
 			switch n := u.Elem().(type) {
 			case *types.Named:
-				tp.Load(n)
+				tp.load(n)
 			case *types.Pointer:
 				pn, ok := n.Elem().(*types.Named)
 				if !ok {
 					continue
 				}
-				tp.Load(pn)
+				tp.load(pn)
 			}
 		case *types.Named:
-			tp.Load(u)
+			tp.load(u)
 		}
 	}
 }
@@ -67,6 +74,7 @@ func (tp *TypePrinter) Load(t *types.Named) {
 const (
 	TypeTmpl = `
 {{ .Comment }}
+{{- .CommentTags }}
 type {{ .Name }} struct {
 {{ .Fields }}
 }`
@@ -76,9 +84,10 @@ type {{ .Name }} struct {
 )
 
 type TypeTmplInput struct {
-	Name    string
-	Fields  string
-	Comment string
+	Name        string
+	Fields      string
+	Comment     string
+	CommentTags string
 }
 
 type FieldTmplInput struct {
@@ -88,11 +97,19 @@ type FieldTmplInput struct {
 	Comment string
 }
 
-func (tp *TypePrinter) Print() (string, error) {
+func (tp *TypePrinter) Print(targetName string) (string, error) {
 	out := ""
 	for name, s := range tp.TypeMap {
 		ti := &TypeTmplInput{
 			Name: name,
+		}
+		if name == tp.RootType.Named.Obj().Name() {
+			ti.Name = targetName
+			commentTags := ""
+			for _, tag := range tp.RootType.CommentTags {
+				commentTags = fmt.Sprintf("%s\n%s", commentTags, tag)
+			}
+			ti.CommentTags = commentTags
 		}
 		for i := 0; i < s.NumFields(); i++ {
 			f := s.Field(i)

@@ -1,14 +1,37 @@
 package scanner
 
-import "go/types"
+import (
+	"fmt"
+	"go/types"
+)
 
-func WithIgnoreFns(f ...IgnoreFieldFn) Option {
+// TODO(muvaf): Using the result of union operation as ignore func would make sense.
+// Consider providing functions to make this easy. For example, `ignore all fields
+// in output that already exists in input`
+
+func WithInputFieldIgnoreFns(f ...IgnoreFieldFn) Option {
 	return func(rc *RemoteCalls) {
-		rc.ignore = f
+		rc.ignore.input = f
 	}
 }
 
-func WithReadCalls(s []string) Option {
+func WithOutputFieldIgnoreFns(f ...IgnoreFieldFn) Option {
+	return func(rc *RemoteCalls) {
+		rc.ignore.output = f
+	}
+}
+
+func WithReadInputs(s ...string) Option {
+	return func(r *RemoteCalls) {
+		for _, typeName := range s {
+			if t := r.scope.Lookup(typeName); t != nil {
+				r.ReadInputs = append(r.ReadInputs, t.Type().(*types.Named))
+			}
+		}
+	}
+}
+
+func WithReadOutputs(s ...string) Option {
 	return func(r *RemoteCalls) {
 		for _, typeName := range s {
 			if t := r.scope.Lookup(typeName); t != nil {
@@ -18,15 +41,27 @@ func WithReadCalls(s []string) Option {
 	}
 }
 
-func WithCreateCall(s string) Option {
+func WithCreateInputs(s ...string) Option {
 	return func(r *RemoteCalls) {
-		if t := r.scope.Lookup(s); t != nil {
-			r.CreationInput = t.Type().(*types.Named)
+		for _, typeName := range s {
+			if t := r.scope.Lookup(typeName); t != nil {
+				r.CreationInputs = append(r.CreationInputs, t.Type().(*types.Named))
+			}
 		}
 	}
 }
 
-func WithUpdateCalls(s []string) Option {
+func WithCreateOutputs(s ...string) Option {
+	return func(r *RemoteCalls) {
+		for _, typeName := range s {
+			if t := r.scope.Lookup(typeName); t != nil {
+				r.CreationOutputs = append(r.CreationOutputs, t.Type().(*types.Named))
+			}
+		}
+	}
+}
+
+func WithUpdateInputs(s ...string) Option {
 	return func(r *RemoteCalls) {
 		for _, typeName := range s {
 			if t := r.scope.Lookup(typeName); t != nil {
@@ -36,7 +71,7 @@ func WithUpdateCalls(s []string) Option {
 	}
 }
 
-func WithDeletionCalls(s []string) Option {
+func WithDeletionInputs(s ...string) Option {
 	return func(r *RemoteCalls) {
 		for _, typeName := range s {
 			if t := r.scope.Lookup(typeName); t != nil {
@@ -69,39 +104,62 @@ func (i IgnoreFieldChain) ShouldIgnore(v *types.Var) bool {
 	return false
 }
 
-type RemoteCalls struct {
-	scope  *types.Scope
-	ignore IgnoreFieldChain // TODO(muvaf): we'll need param/status differentiation.
+type ignore struct {
+	input  IgnoreFieldChain
+	output IgnoreFieldChain
+}
 
-	CreationInput  *types.Named
+type RemoteCalls struct {
+	scope *types.Scope
+	ignore
+
+	CreationInputs []*types.Named
+	ReadInputs     []*types.Named
 	UpdateInputs   []*types.Named
 	DeletionInputs []*types.Named
 
-	ReadOutputs []*types.Named
+	CreationOutputs []*types.Named
+	ReadOutputs     []*types.Named
 }
 
-func (r *RemoteCalls) AggregatedInput() *types.Struct {
+func (r *RemoteCalls) AggregatedInput(tn *types.TypeName) *Named {
 	varMap := map[string]*types.Var{}
-	c := r.CreationInput.Underlying().(*types.Struct)
-	for i := 0; i < c.NumFields(); i++ {
-		if r.ignore.ShouldIgnore(c.Field(i)) {
-			continue
+	aggregatedTypes := map[string]struct{}{}
+	for _, c := range r.CreationInputs {
+		aggregatedTypes[fmt.Sprintf("%s.%s", c.Obj().Pkg().Path(), c.Obj().Name())] = struct{}{}
+		cre := c.Underlying().(*types.Struct)
+		for i := 0; i < cre.NumFields(); i++ {
+			if r.ignore.input.ShouldIgnore(cre.Field(i)) {
+				continue
+			}
+			varMap[cre.Field(i).Name()] = cre.Field(i)
 		}
-		varMap[c.Field(i).Name()] = c.Field(i)
 	}
-	for _, upd := range r.UpdateInputs {
-		u := upd.Underlying().(*types.Struct)
+	for _, c := range r.ReadInputs {
+		aggregatedTypes[fmt.Sprintf("%s.%s", c.Obj().Pkg().Path(), c.Obj().Name())] = struct{}{}
+		re := c.Underlying().(*types.Struct)
+		for i := 0; i < re.NumFields(); i++ {
+			if r.ignore.input.ShouldIgnore(re.Field(i)) {
+				continue
+			}
+			varMap[re.Field(i).Name()] = re.Field(i)
+		}
+	}
+	for _, c := range r.UpdateInputs {
+		aggregatedTypes[fmt.Sprintf("%s.%s", c.Obj().Pkg().Path(), c.Obj().Name())] = struct{}{}
+		u := c.Underlying().(*types.Struct)
 		for i := 0; i < u.NumFields(); i++ {
-			if r.ignore.ShouldIgnore(u.Field(i)) {
+			if r.ignore.input.ShouldIgnore(u.Field(i)) {
 				continue
 			}
 			varMap[u.Field(i).Name()] = u.Field(i)
 		}
 	}
-	for _, del := range r.DeletionInputs {
-		d := del.Underlying().(*types.Struct)
+	for _, c := range r.DeletionInputs {
+		aggregatedTypes[fmt.Sprintf("%s.%s", c.Obj().Pkg().Path(), c.Obj().Name())] = struct{}{}
+		d := c.Underlying().(*types.Struct)
 		for i := 0; i < d.NumFields(); i++ {
-			if r.ignore.ShouldIgnore(d.Field(i)) {
+			if r.ignore.input.ShouldIgnore(d.Field(i)) {
 				continue
 			}
 			varMap[d.Field(i).Name()] = d.Field(i)
@@ -113,23 +171,36 @@ func (r *RemoteCalls) AggregatedInput() *types.Struct {
 		fields[i] = v
 		i++
 	}
-	return types.NewStruct(fields, nil)
+	n := types.NewNamed(tn, types.NewStruct(fields, nil), nil)
+	var ats []string
+	for at := range aggregatedTypes {
+		ats = append(ats, at)
+	}
+	return NewNamed(n, AggregatedTypesTags(ats))
 }
 
-func (r *RemoteCalls) AggregatedOutput() *types.Struct {
+func (r *RemoteCalls) AggregatedOutput(tn *types.TypeName) *Named {
 	varMap := map[string]*types.Var{}
-	for _, re := range r.ReadOutputs {
-		ro := re.Underlying().(*types.Struct)
+	aggregatedTypes := map[string]struct{}{}
+	for _, c := range r.ReadOutputs {
+		aggregatedTypes[fmt.Sprintf("%s.%s", c.Obj().Pkg().Path(), c.Obj().Name())] = struct{}{}
+		ro := c.Underlying().(*types.Struct)
 		for i := 0; i < ro.NumFields(); i++ {
-			if r.ignore.ShouldIgnore(ro.Field(i)) {
+			if r.ignore.output.ShouldIgnore(ro.Field(i)) {
 				continue
 			}
 			varMap[ro.Field(i).Name()] = ro.Field(i)
 		}
 	}
-	params := r.AggregatedInput()
-	for i := 0; i < params.NumFields(); i++ {
-		delete(varMap, params.Field(i).Name())
+	for _, c := range r.CreationOutputs {
+		aggregatedTypes[fmt.Sprintf("%s.%s", c.Obj().Pkg().Path(), c.Obj().Name())] = struct{}{}
+		co := c.Underlying().(*types.Struct)
+		for i := 0; i < co.NumFields(); i++ {
+			if r.ignore.output.ShouldIgnore(co.Field(i)) {
+				continue
+			}
+			varMap[co.Field(i).Name()] = co.Field(i)
+		}
 	}
 	fields := make([]*types.Var, len(varMap))
 	i := 0
@@ -137,5 +208,10 @@ func (r *RemoteCalls) AggregatedOutput() *types.Struct {
 		fields[i] = v
 		i++
 	}
-	return types.NewStruct(fields, nil)
+	n := types.NewNamed(tn, types.NewStruct(fields, nil), nil)
+	var ats []string
+	for at := range aggregatedTypes {
+		ats = append(ats, at)
+	}
+	return NewNamed(n, AggregatedTypesTags(ats))
 }

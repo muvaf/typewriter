@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"io/ioutil"
+	"strings"
 	"text/template"
 
 	"github.com/muvaf/typewriter/pkg/imports"
@@ -72,5 +73,5 @@ func (f *File) Wrap(input map[string]interface{}) ([]byte, error) {
 	}
 	result := &bytes.Buffer{}
 	err = t.Execute(result, values)
-	return result.Bytes(), errors.Wrap(err, "cannot execute template")
+	return []byte(strings.ReplaceAll(result.String(), "\n\n", "\n")), errors.Wrap(err, "cannot execute template")
 }

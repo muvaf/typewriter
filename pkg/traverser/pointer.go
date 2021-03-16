@@ -2,10 +2,11 @@ package traverser
 
 import (
 	"bytes"
-	"github.com/muvaf/typewriter/pkg/imports"
 	"go/types"
 	"strings"
 	"text/template"
+
+	"github.com/muvaf/typewriter/pkg/imports"
 
 	"github.com/pkg/errors"
 )
@@ -21,25 +22,25 @@ if {{ .AFieldPath }} != nil {
 }`
 
 type PointerTmplInput struct {
-	AFieldPath string
-	TypeA      string
-	NonPointerTypeA      string
-	BFieldPath string
-	TypeB      string
-	NonPointerTypeB      string
-	Statements  string
+	AFieldPath      string
+	TypeA           string
+	NonPointerTypeA string
+	BFieldPath      string
+	TypeB           string
+	NonPointerTypeB string
+	Statements      string
 }
 
-func NewPointer(im imports.Map) *Pointer {
+func NewPointer(im *imports.Map) *Pointer {
 	return &Pointer{
 		Template: DefaultPointerTmpl,
-		Imports: im,
+		Imports:  im,
 	}
 }
 
 type Pointer struct {
 	Template string
-	Imports  imports.Map
+	Imports  *imports.Map
 	Type     GenericTraverser
 }
 

@@ -3,9 +3,10 @@ package wrapper
 import (
 	"bytes"
 	"fmt"
-	"github.com/muvaf/typewriter/pkg/imports"
 	"go/types"
 	"text/template"
+
+	"github.com/muvaf/typewriter/pkg/imports"
 
 	"github.com/pkg/errors"
 )
@@ -28,14 +29,14 @@ type DefaultFuncTmplInput struct {
 	Content           string
 }
 
-func NewFunc(im imports.Map) *Func {
+func NewFunc(im *imports.Map) *Func {
 	return &Func{
 		Imports: im,
 	}
 }
 
-type Func struct{
-	Imports imports.Map
+type Func struct {
+	Imports *imports.Map
 }
 
 // Wrap assumes that packages are imported with the same name.

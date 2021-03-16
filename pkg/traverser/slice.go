@@ -3,9 +3,10 @@ package traverser
 import (
 	"bytes"
 	"fmt"
-	"github.com/muvaf/typewriter/pkg/imports"
 	"go/types"
 	"text/template"
+
+	"github.com/muvaf/typewriter/pkg/imports"
 
 	"github.com/pkg/errors"
 )
@@ -24,19 +25,19 @@ type SliceTmplInput struct {
 	BFieldPath string
 	TypeB      string
 	Index      string
-	Statements  string
+	Statements string
 }
 
-func NewSlice(im imports.Map) *Slice {
+func NewSlice(im *imports.Map) *Slice {
 	return &Slice{
-		Imports: im,
+		Imports:  im,
 		Template: DefaultSliceTmpl,
 	}
 }
 
 type Slice struct {
 	Template string
-	Imports  imports.Map
+	Imports  *imports.Map
 	Generic  GenericTraverser
 }
 
@@ -60,7 +61,7 @@ func (s *Slice) Print(a, b *types.Slice, aFieldPath, bFieldPath string, levelNum
 		BFieldPath: bFieldPath,
 		TypeB:      s.Imports.UseType(b.String()),
 		Index:      index,
-		Statements:  statements,
+		Statements: statements,
 	}
 	t, err := template.New("func").Parse(s.Template)
 	if err != nil {

@@ -3,9 +3,10 @@ package traverser
 import (
 	"bytes"
 	"fmt"
-	"github.com/muvaf/typewriter/pkg/imports"
 	"go/types"
 	"text/template"
+
+	"github.com/muvaf/typewriter/pkg/imports"
 
 	"github.com/pkg/errors"
 )
@@ -27,21 +28,21 @@ type DefaultMapTmplInput struct {
 	TypeA      string
 	BFieldPath string
 	TypeB      string
-	Key      string
+	Key        string
 	Value      string
-	Statements  string
+	Statements string
 }
 
-func NewMap(im imports.Map) *Map {
+func NewMap(im *imports.Map) *Map {
 	return &Map{
 		Template: DefaultMapTmpl,
-		Imports: im,
+		Imports:  im,
 	}
 }
 
 type Map struct {
-	Template string
-	Imports   imports.Map
+	Template  string
+	Imports   *imports.Map
 	Recursive GenericTraverser
 }
 

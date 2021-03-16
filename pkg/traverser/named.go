@@ -20,8 +20,15 @@ func (s *Named) SetGenericTraverser(p GenericTraverser) {
 }
 
 func (s *Named) Print(a, b *types.Named, aFieldPath, bFieldPath string, levelNum int) (string, error) {
-	at := a.Underlying().(*types.Struct)
+	// TODO(muvaf): This could be *types.Map and valid.
+	at, ok := a.Underlying().(*types.Struct)
+	if !ok {
+		return "", nil
+	}
 	bt := b.Underlying().(*types.Struct)
+	if !ok {
+		return "", nil
+	}
 	out := ""
 	for i := 0; i < at.NumFields(); i++ {
 		if at.Field(i).Name() == "_" {

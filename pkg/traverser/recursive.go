@@ -69,13 +69,13 @@ func WithSliceTemplate(t string) Option {
 
 type Option func(*Generic)
 
-func NewGeneric(im imports.Map, opts ...Option) *Generic {
+func NewGeneric(im *imports.Map, opts ...Option) *Generic {
 	g := &Generic{
 		Imports: im,
-		Slice: NewSlice(im),
-		Named: NewNamed(),
-		Basic: NewBasic(),
-		Map: NewMap(im),
+		Slice:   NewSlice(im),
+		Named:   NewNamed(),
+		Basic:   NewBasic(),
+		Map:     NewMap(im),
 		Pointer: NewPointer(im),
 	}
 	for _, f := range opts {
@@ -89,11 +89,11 @@ func NewGeneric(im imports.Map, opts ...Option) *Generic {
 }
 
 type Generic struct {
-	Imports imports.Map
-	Named NamedTraverser
-	Slice SliceTraverser
-	Basic BasicTraverser
-	Map MapTraverser
+	Imports *imports.Map
+	Named   NamedTraverser
+	Slice   SliceTraverser
+	Basic   BasicTraverser
+	Map     MapTraverser
 	Pointer PointerTraverser
 }
 

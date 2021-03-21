@@ -71,7 +71,7 @@ func PrintConversions(pkgPath, targetPkgPath string) error {
 			}
 			generated, err := getConversion(fl.Imports, source, remoteNamed)
 			if err != nil {
-				return errors.Wrapf(err, "cannot write conversion from %s to %s", source.Obj().String(), remoteNamed.Obj().String())
+				return errors.Wrapf(err, "cannot write conversion from %s to %s", source.Obj().Name(), remoteNamed.Obj().Name())
 			}
 			result = append(result, generated)
 		}

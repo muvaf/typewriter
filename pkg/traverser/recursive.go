@@ -112,6 +112,16 @@ func (g *Generic) Print(a, b types.Type, aFieldPath, bFieldPath string, levelNum
 			o, err := g.Basic.Print(atb, btb, aFieldPath, bFieldPath)
 			return o, errors.Wrap(err, "cannot traverse basic pointer type")
 		}
+		// This is to guard for types like `*[]string` that are implicitly pointer
+		// of pointers. After processing that it's a pointer, we cannot proceed
+		// to process the element type without de-referencing the pointer.
+		// TODO(muvaf): This is probably needed for *map[string]string as well.
+		ats, aSlice := at.Elem().(*types.Slice)
+		bts, bSlice := bt.Elem().(*types.Slice)
+		if aSlice && bSlice {
+			o, err := g.Slice.Print(ats, bts, "(*"+aFieldPath+")", "(*"+bFieldPath+")", levelNum)
+			return o, errors.Wrap(err, "cannot traverse basic pointer type")
+		}
 		o, err := g.Pointer.Print(at, bt, aFieldPath, bFieldPath, levelNum)
 		return o, errors.Wrap(err, "cannot traverse pointer type")
 	case *types.Slice:

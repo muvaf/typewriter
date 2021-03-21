@@ -8,21 +8,16 @@ import (
 	"os/exec"
 	"strings"
 
+	packages2 "github.com/muvaf/typewriter/pkg/packages"
+
 	"github.com/muvaf/typewriter/pkg/wrapper"
 
-	"github.com/muvaf/typewriter/pkg/scanner"
-
 	"github.com/pkg/errors"
-	"golang.org/x/tools/go/packages"
-)
-
-const (
-	LoadMode = packages.NeedName | packages.NeedFiles | packages.NeedImports | packages.NeedDeps | packages.NeedTypes | packages.NeedSyntax
 )
 
 type GeneratorChain []Generator
 
-func (gc GeneratorChain) Generate(t *types.Named, cm *scanner.CommentMarkers) (map[string]interface{}, error) {
+func (gc GeneratorChain) Generate(t *types.Named, cm *packages2.CommentMarkers) (map[string]interface{}, error) {
 	result := map[string]interface{}{}
 	for i, g := range gc {
 		if !g.Matches(cm) {
@@ -46,7 +41,7 @@ type File struct {
 	LicenseHeaderPath string
 	DisableLinter     bool
 	NewGeneratorFns   []NewGeneratorFn
-	Cache             *Cache
+	Cache             *packages2.Cache
 }
 
 func (f *File) Run() error {
@@ -54,7 +49,7 @@ func (f *File) Run() error {
 	if err != nil {
 		return errors.Wrap(err, "cannot get source package")
 	}
-	recipe, err := scanner.LoadCommentMarkers(sourcePkg)
+	recipe, err := packages2.LoadCommentMarkers(sourcePkg)
 	if err != nil {
 		return errors.Wrap(err, "cannot scan comment markers")
 	}

@@ -2,6 +2,8 @@ package scanner
 
 import (
 	"go/types"
+
+	"github.com/muvaf/typewriter/pkg/packages"
 )
 
 // TODO(muvaf): Using the result of union operation as ignore func would make sense.
@@ -121,9 +123,9 @@ type RemoteCalls struct {
 	ReadOutputs     []*types.Named
 }
 
-func (r *RemoteCalls) AggregatedInput(tn *types.TypeName) (*types.Named, *CommentMarkers) {
+func (r *RemoteCalls) AggregatedInput(tn *types.TypeName) (*types.Named, *packages.CommentMarkers) {
 	varMap := map[string]*types.Var{}
-	cm := NewCommentMarkers()
+	cm := packages.NewCommentMarkers()
 	for _, c := range r.CreationInputs {
 		addAggregatedTypeMarker(cm, c)
 		cre := c.Underlying().(*types.Struct)
@@ -174,9 +176,9 @@ func (r *RemoteCalls) AggregatedInput(tn *types.TypeName) (*types.Named, *Commen
 	return n, cm
 }
 
-func (r *RemoteCalls) AggregatedOutput(tn *types.TypeName) (*types.Named, *CommentMarkers) {
+func (r *RemoteCalls) AggregatedOutput(tn *types.TypeName) (*types.Named, *packages.CommentMarkers) {
 	varMap := map[string]*types.Var{}
-	cm := NewCommentMarkers()
+	cm := packages.NewCommentMarkers()
 	for _, c := range r.ReadOutputs {
 		addAggregatedTypeMarker(cm, c)
 		ro := c.Underlying().(*types.Struct)
@@ -207,12 +209,12 @@ func (r *RemoteCalls) AggregatedOutput(tn *types.TypeName) (*types.Named, *Comme
 	return n, cm
 }
 
-func addAggregatedTypeMarker(cm *CommentMarkers, n *types.Named) {
-	fullPath := FullPath(n)
-	for _, ag := range cm.Types[SectionAggregated] {
+func addAggregatedTypeMarker(cm *packages.CommentMarkers, n *types.Named) {
+	fullPath := packages.FullPath(n)
+	for _, ag := range cm.Types[packages.SectionAggregated] {
 		if ag == fullPath {
 			return
 		}
 	}
-	cm.Types[SectionAggregated] = append(cm.Types[SectionAggregated], fullPath)
+	cm.Types[packages.SectionAggregated] = append(cm.Types[packages.SectionAggregated], fullPath)
 }

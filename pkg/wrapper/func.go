@@ -9,7 +9,7 @@ import (
 
 	"github.com/muvaf/typewriter/pkg/traverser"
 
-	"github.com/muvaf/typewriter/pkg/imports"
+	"github.com/muvaf/typewriter/pkg/packages"
 
 	"github.com/pkg/errors"
 )
@@ -31,7 +31,7 @@ func WithTemplate(t string) FuncOption {
 
 type FuncOption func(p *Func)
 
-func NewFunc(im *imports.Map, tr traverser.GenericTraverser, opts ...FuncOption) *Func {
+func NewFunc(im *packages.Map, tr traverser.GenericTraverser, opts ...FuncOption) *Func {
 	f := &Func{
 		Imports:   im,
 		Traverser: tr,
@@ -44,7 +44,7 @@ func NewFunc(im *imports.Map, tr traverser.GenericTraverser, opts ...FuncOption)
 }
 
 type Func struct {
-	Imports   *imports.Map
+	Imports   *packages.Map
 	Traverser traverser.GenericTraverser
 	Template  string
 }

@@ -4,18 +4,16 @@ import (
 	"fmt"
 	"go/types"
 
-	"github.com/muvaf/typewriter/pkg/imports"
+	"github.com/muvaf/typewriter/pkg/packages"
 	"github.com/muvaf/typewriter/pkg/traverser"
 	"github.com/muvaf/typewriter/pkg/wrapper"
 
 	"github.com/pkg/errors"
-
-	"github.com/muvaf/typewriter/pkg/scanner"
 )
 
-func NewProducer(cache *Cache, im *imports.Map) Generator {
+func NewProducer(cache *packages.Cache, im *packages.Map) Generator {
 	if cache == nil {
-		cache = NewCache()
+		cache = packages.NewCache()
 	}
 	return &Producer{
 		cache:   cache,
@@ -24,13 +22,13 @@ func NewProducer(cache *Cache, im *imports.Map) Generator {
 }
 
 type Producer struct {
-	cache   *Cache
-	imports *imports.Map
+	cache   *packages.Cache
+	imports *packages.Map
 }
 
-func (p *Producer) Generate(source *types.Named, cm *scanner.CommentMarkers) (map[string]interface{}, error) {
+func (p *Producer) Generate(source *types.Named, cm *packages.CommentMarkers) (map[string]interface{}, error) {
 	result := ""
-	aggregated := cm.Types[scanner.SectionAggregated]
+	aggregated := cm.Types[packages.SectionAggregated]
 	for _, target := range aggregated {
 		targetType, err := p.cache.GetType(target)
 		if err != nil {
@@ -48,7 +46,7 @@ func (p *Producer) Generate(source *types.Named, cm *scanner.CommentMarkers) (ma
 	}, nil
 }
 
-func (p *Producer) Matches(cm *scanner.CommentMarkers) bool {
-	_, ok := cm.Types[scanner.SectionAggregated]
-	return ok && len(cm.Types[scanner.SectionAggregated]) > 0
+func (p *Producer) Matches(cm *packages.CommentMarkers) bool {
+	_, ok := cm.Types[packages.SectionAggregated]
+	return ok && len(cm.Types[packages.SectionAggregated]) > 0
 }

@@ -7,15 +7,16 @@ import (
 	"strings"
 	"text/template"
 
-	"github.com/muvaf/typewriter/pkg/imports"
+	"github.com/muvaf/typewriter/pkg/packages"
 
 	"github.com/pkg/errors"
 )
 
-func NewTypePrinter(originPackagePath string, rootType *types.Named, commentTags []string, im *imports.Map, targetScope *types.Scope) *TypePrinter {
+func NewTypePrinter(originPackagePath string, rootType *types.Named, commentTags []string, im *packages.Map, targetScope *types.Scope) *TypePrinter {
 	return &TypePrinter{
 		OriginPackagePath: originPackagePath,
 		RootType:          rootType,
+		CommentTags:       commentTags,
 		Imports:           im,
 		TypeMap:           map[string]*types.Named{},
 		TargetScope:       targetScope,
@@ -26,7 +27,7 @@ type TypePrinter struct {
 	OriginPackagePath string
 	RootType          *types.Named
 	CommentTags       []string
-	Imports           *imports.Map
+	Imports           *packages.Map
 	TypeMap           map[string]*types.Named
 	TargetScope       *types.Scope
 }

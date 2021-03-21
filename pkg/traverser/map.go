@@ -6,7 +6,7 @@ import (
 	"go/types"
 	"text/template"
 
-	"github.com/muvaf/typewriter/pkg/imports"
+	"github.com/muvaf/typewriter/pkg/packages"
 
 	"github.com/pkg/errors"
 )
@@ -33,7 +33,7 @@ type DefaultMapTmplInput struct {
 	Statements string
 }
 
-func NewMap(im *imports.Map) *Map {
+func NewMap(im *packages.Map) *Map {
 	return &Map{
 		Template: DefaultMapTmpl,
 		Imports:  im,
@@ -42,7 +42,7 @@ func NewMap(im *imports.Map) *Map {
 
 type Map struct {
 	Template  string
-	Imports   *imports.Map
+	Imports   *packages.Map
 	Recursive GenericTraverser
 }
 

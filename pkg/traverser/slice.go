@@ -6,7 +6,7 @@ import (
 	"go/types"
 	"text/template"
 
-	"github.com/muvaf/typewriter/pkg/imports"
+	"github.com/muvaf/typewriter/pkg/packages"
 
 	"github.com/pkg/errors"
 )
@@ -28,7 +28,7 @@ type SliceTmplInput struct {
 	Statements string
 }
 
-func NewSlice(im *imports.Map) *Slice {
+func NewSlice(im *packages.Map) *Slice {
 	return &Slice{
 		Imports:  im,
 		Template: DefaultSliceTmpl,
@@ -37,7 +37,7 @@ func NewSlice(im *imports.Map) *Slice {
 
 type Slice struct {
 	Template string
-	Imports  *imports.Map
+	Imports  *packages.Map
 	Generic  GenericTraverser
 }
 

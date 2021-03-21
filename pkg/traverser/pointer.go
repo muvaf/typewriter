@@ -6,7 +6,7 @@ import (
 	"strings"
 	"text/template"
 
-	"github.com/muvaf/typewriter/pkg/imports"
+	"github.com/muvaf/typewriter/pkg/packages"
 
 	"github.com/pkg/errors"
 )
@@ -31,7 +31,7 @@ type PointerTmplInput struct {
 	Statements      string
 }
 
-func NewPointer(im *imports.Map) *Pointer {
+func NewPointer(im *packages.Map) *Pointer {
 	return &Pointer{
 		Template: DefaultPointerTmpl,
 		Imports:  im,
@@ -40,7 +40,7 @@ func NewPointer(im *imports.Map) *Pointer {
 
 type Pointer struct {
 	Template string
-	Imports  *imports.Map
+	Imports  *packages.Map
 	Type     GenericTraverser
 }
 

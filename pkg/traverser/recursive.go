@@ -6,7 +6,7 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/muvaf/typewriter/pkg/imports"
+	"github.com/muvaf/typewriter/pkg/packages"
 )
 
 func WithMap(m MapTraverser) Option {
@@ -69,7 +69,7 @@ func WithSliceTemplate(t string) Option {
 
 type Option func(*Generic)
 
-func NewGeneric(im *imports.Map, opts ...Option) *Generic {
+func NewGeneric(im *packages.Map, opts ...Option) *Generic {
 	g := &Generic{
 		Imports: im,
 		Slice:   NewSlice(im),
@@ -89,7 +89,7 @@ func NewGeneric(im *imports.Map, opts ...Option) *Generic {
 }
 
 type Generic struct {
-	Imports *imports.Map
+	Imports *packages.Map
 	Named   NamedTraverser
 	Slice   SliceTraverser
 	Basic   BasicTraverser
@@ -116,6 +116,7 @@ func (g *Generic) Print(a, b types.Type, aFieldPath, bFieldPath string, levelNum
 		// of pointers. After processing that it's a pointer, we cannot proceed
 		// to process the element type without de-referencing the pointer.
 		// TODO(muvaf): This is probably needed for *map[string]string as well.
+		// todo(muvaf): THIS COMPILES BUT DEREFERENCES EMPTY POINTER!!!!!! FIX!
 		ats, aSlice := at.Elem().(*types.Slice)
 		bts, bSlice := bt.Elem().(*types.Slice)
 		if aSlice && bSlice {

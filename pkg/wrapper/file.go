@@ -6,12 +6,12 @@ import (
 	"io/ioutil"
 	"text/template"
 
-	"github.com/muvaf/typewriter/pkg/imports"
+	"github.com/muvaf/typewriter/pkg/packages"
 
 	"github.com/pkg/errors"
 )
 
-func WithImports(im *imports.Map) FileOption {
+func WithImports(im *packages.Map) FileOption {
 	return func(f *File) {
 		f.Imports = im
 	}
@@ -29,7 +29,7 @@ func NewFile(pkg, tmplPath string, opts ...FileOption) *File {
 	f := &File{
 		Package:      pkg,
 		TemplatePath: tmplPath,
-		Imports:      imports.NewMap(pkg),
+		Imports:      packages.NewMap(pkg),
 	}
 	for _, fn := range opts {
 		fn(f)
@@ -41,7 +41,7 @@ type File struct {
 	HeaderPath   string
 	TemplatePath string
 	Package      string
-	Imports      *imports.Map
+	Imports      *packages.Map
 }
 
 // Wrap writes the objects to the file one by one.

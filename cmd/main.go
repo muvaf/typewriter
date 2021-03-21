@@ -3,6 +3,8 @@ package main
 import (
 	"path/filepath"
 
+	"github.com/muvaf/typewriter/pkg/packages"
+
 	"github.com/alecthomas/kong"
 
 	"github.com/muvaf/typewriter/pkg/cmd"
@@ -25,7 +27,7 @@ func main() {
 }
 
 func PrintProducers(pkgPath, targetPkgPath string, disableLinter bool) error {
-	c := cmd.NewCache()
+	c := packages.NewCache()
 	f := cmd.File{
 		SourcePackagePath: pkgPath,
 		TargetFilePath:    filepath.Join(targetPkgPath, "producers.go"),

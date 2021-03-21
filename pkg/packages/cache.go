@@ -1,13 +1,17 @@
-package cmd
+package packages
 
 import (
 	"fmt"
+
 	"go/types"
 	"strings"
 
 	"github.com/pkg/errors"
-
 	"golang.org/x/tools/go/packages"
+)
+
+const (
+	LoadMode = packages.NeedName | packages.NeedFiles | packages.NeedImports | packages.NeedDeps | packages.NeedTypes | packages.NeedSyntax
 )
 
 func NewCache() *Cache {

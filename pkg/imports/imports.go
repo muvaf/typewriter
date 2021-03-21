@@ -78,8 +78,9 @@ func parseTypeDec(s string) (string, string) {
 
 // TODO(muvaf): find a better method to check this.
 func isBuiltIn(s string) bool {
+	s = strings.NewReplacer("*", "", "[]", "").Replace(s)
 	switch s {
-	case "bool", "*bool", "string", "int", "int64", "[]*string", "[]string", "map[string]string":
+	case "bool", "string", "int", "int64", "map[string]string":
 		return true
 	}
 	return false

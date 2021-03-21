@@ -122,11 +122,11 @@ type RemoteCalls struct {
 	ReadOutputs     []*types.Named
 }
 
-func (r *RemoteCalls) AggregatedInput(tn *types.TypeName) *Named {
+func (r *RemoteCalls) AggregatedInput(tn *types.TypeName) (*types.Named, *CommentTags) {
 	varMap := map[string]*types.Var{}
-	aggregatedTypes := map[string]struct{}{}
+	ct := NewCommentTags()
 	for _, c := range r.CreationInputs {
-		aggregatedTypes[fmt.Sprintf("%s.%s", c.Obj().Pkg().Path(), c.Obj().Name())] = struct{}{}
+		ct.AddAggregated(fmt.Sprintf("%s.%s", c.Obj().Pkg().Path(), c.Obj().Name()))
 		cre := c.Underlying().(*types.Struct)
 		for i := 0; i < cre.NumFields(); i++ {
 			if r.ignore.input.ShouldIgnore(cre.Field(i)) {
@@ -136,7 +136,7 @@ func (r *RemoteCalls) AggregatedInput(tn *types.TypeName) *Named {
 		}
 	}
 	for _, c := range r.ReadInputs {
-		aggregatedTypes[fmt.Sprintf("%s.%s", c.Obj().Pkg().Path(), c.Obj().Name())] = struct{}{}
+		ct.AddAggregated(fmt.Sprintf("%s.%s", c.Obj().Pkg().Path(), c.Obj().Name()))
 		re := c.Underlying().(*types.Struct)
 		for i := 0; i < re.NumFields(); i++ {
 			if r.ignore.input.ShouldIgnore(re.Field(i)) {
@@ -146,7 +146,7 @@ func (r *RemoteCalls) AggregatedInput(tn *types.TypeName) *Named {
 		}
 	}
 	for _, c := range r.UpdateInputs {
-		aggregatedTypes[fmt.Sprintf("%s.%s", c.Obj().Pkg().Path(), c.Obj().Name())] = struct{}{}
+		ct.AddAggregated(fmt.Sprintf("%s.%s", c.Obj().Pkg().Path(), c.Obj().Name()))
 		u := c.Underlying().(*types.Struct)
 		for i := 0; i < u.NumFields(); i++ {
 			if r.ignore.input.ShouldIgnore(u.Field(i)) {
@@ -156,7 +156,7 @@ func (r *RemoteCalls) AggregatedInput(tn *types.TypeName) *Named {
 		}
 	}
 	for _, c := range r.DeletionInputs {
-		aggregatedTypes[fmt.Sprintf("%s.%s", c.Obj().Pkg().Path(), c.Obj().Name())] = struct{}{}
+		ct.AddAggregated(fmt.Sprintf("%s.%s", c.Obj().Pkg().Path(), c.Obj().Name()))
 		d := c.Underlying().(*types.Struct)
 		for i := 0; i < d.NumFields(); i++ {
 			if r.ignore.input.ShouldIgnore(d.Field(i)) {
@@ -172,18 +172,14 @@ func (r *RemoteCalls) AggregatedInput(tn *types.TypeName) *Named {
 		i++
 	}
 	n := types.NewNamed(tn, types.NewStruct(fields, nil), nil)
-	var ats []string
-	for at := range aggregatedTypes {
-		ats = append(ats, at)
-	}
-	return NewNamed(n, AggregatedTypesTags(ats))
+	return n, ct
 }
 
-func (r *RemoteCalls) AggregatedOutput(tn *types.TypeName) *Named {
+func (r *RemoteCalls) AggregatedOutput(tn *types.TypeName) (*types.Named, *CommentTags) {
 	varMap := map[string]*types.Var{}
-	aggregatedTypes := map[string]struct{}{}
+	ct := NewCommentTags()
 	for _, c := range r.ReadOutputs {
-		aggregatedTypes[fmt.Sprintf("%s.%s", c.Obj().Pkg().Path(), c.Obj().Name())] = struct{}{}
+		ct.AddAggregated(fmt.Sprintf("%s.%s", c.Obj().Pkg().Path(), c.Obj().Name()))
 		ro := c.Underlying().(*types.Struct)
 		for i := 0; i < ro.NumFields(); i++ {
 			if r.ignore.output.ShouldIgnore(ro.Field(i)) {
@@ -193,7 +189,7 @@ func (r *RemoteCalls) AggregatedOutput(tn *types.TypeName) *Named {
 		}
 	}
 	for _, c := range r.CreationOutputs {
-		aggregatedTypes[fmt.Sprintf("%s.%s", c.Obj().Pkg().Path(), c.Obj().Name())] = struct{}{}
+		ct.AddAggregated(fmt.Sprintf("%s.%s", c.Obj().Pkg().Path(), c.Obj().Name()))
 		co := c.Underlying().(*types.Struct)
 		for i := 0; i < co.NumFields(); i++ {
 			if r.ignore.output.ShouldIgnore(co.Field(i)) {
@@ -209,9 +205,5 @@ func (r *RemoteCalls) AggregatedOutput(tn *types.TypeName) *Named {
 		i++
 	}
 	n := types.NewNamed(tn, types.NewStruct(fields, nil), nil)
-	var ats []string
-	for at := range aggregatedTypes {
-		ats = append(ats, at)
-	}
-	return NewNamed(n, AggregatedTypesTags(ats))
+	return n, ct
 }

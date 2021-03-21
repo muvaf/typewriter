@@ -12,7 +12,7 @@ import (
 	"github.com/pkg/errors"
 )
 
-func NewTypePrinter(originPackagePath string, rootType *Named, im *imports.Map, targetScope *types.Scope) *TypePrinter {
+func NewTypePrinter(originPackagePath string, rootType *types.Named, commentTags []string, im *imports.Map, targetScope *types.Scope) *TypePrinter {
 	return &TypePrinter{
 		OriginPackagePath: originPackagePath,
 		RootType:          rootType,
@@ -24,14 +24,15 @@ func NewTypePrinter(originPackagePath string, rootType *Named, im *imports.Map, 
 
 type TypePrinter struct {
 	OriginPackagePath string
-	RootType          *Named
+	RootType          *types.Named
+	CommentTags       []string
 	Imports           *imports.Map
 	TypeMap           map[string]*types.Named
 	TargetScope       *types.Scope
 }
 
 func (tp *TypePrinter) Parse() {
-	tp.load(tp.RootType.Named)
+	tp.load(tp.RootType)
 }
 
 func (tp *TypePrinter) load(t *types.Named) {
@@ -105,10 +106,10 @@ func (tp *TypePrinter) Print(targetName string) (string, error) {
 		ti := &TypeTmplInput{
 			Name: name,
 		}
-		if name == tp.RootType.Named.Obj().Name() {
+		if name == tp.RootType.Obj().Name() {
 			ti.Name = targetName
 			commentTags := ""
-			for _, tag := range tp.RootType.CommentTags {
+			for _, tag := range tp.CommentTags {
 				commentTags = fmt.Sprintf("%s\n%s", commentTags, tag)
 			}
 			ti.CommentTags = commentTags

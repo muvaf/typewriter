@@ -104,6 +104,14 @@ func (g *Generic) Print(a, b types.Type, aFieldPath, bFieldPath string, levelNum
 		if !ok {
 			return "", fmt.Errorf("not same type at %s", bFieldPath)
 		}
+		// No need to initialize a new pointer for basic types since the operations
+		// are done directly on them, not in their fields as opposed to structs.
+		atb, aBasic := at.Elem().(*types.Basic)
+		btb, bBasic := bt.Elem().(*types.Basic)
+		if aBasic && bBasic {
+			o, err := g.Basic.Print(atb, btb, aFieldPath, bFieldPath)
+			return o, errors.Wrap(err, "cannot traverse basic pointer type")
+		}
 		o, err := g.Pointer.Print(at, bt, aFieldPath, bFieldPath, levelNum)
 		return o, errors.Wrap(err, "cannot traverse pointer type")
 	case *types.Slice:

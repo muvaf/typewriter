@@ -5,57 +5,74 @@ import (
 	"go/types"
 	"strings"
 
+	"github.com/pkg/errors"
+
 	"golang.org/x/tools/go/packages"
 )
 
-func NewCommentTags() *CommentTags {
-	return &CommentTags{
-		types: typeTags{
-			aggregated: map[string]struct{}{},
-		},
+const (
+	CommentPrefix     = "+typewriter"
+	SectionTypes      = "types"
+	SectionAggregated = "aggregated"
+)
+
+func NewCommentMarkers() *CommentMarkers {
+	return &CommentMarkers{
+		Types: map[string][]string{},
 	}
 }
 
-type CommentTags struct {
-	types typeTags
+type CommentMarkers struct {
+	Types map[string][]string
 }
 
-type typeTags struct {
-	aggregated map[string]struct{}
-}
-
-func (ct *CommentTags) AddAggregated(t string) {
-	ct.types.aggregated[t] = struct{}{}
-}
-
-func (ct *CommentTags) GetAggregatedTypes() map[string]struct{} {
-	return ct.types.aggregated
-}
-
-// TODO(muvaf): Support comma-seperated lists.
-
-func (ct *CommentTags) Print() string {
+func (ct *CommentMarkers) Print() string {
 	out := ""
-	for a := range ct.types.aggregated {
-		out += fmt.Sprintf("// +typewriter:types:aggregated=%s\n", a)
+	for k, va := range ct.Types {
+		for _, v := range va {
+			out += fmt.Sprintf("// +typewriter:%s:%s=%s\n", SectionTypes, k, v)
+		}
 	}
 	return out
 }
 
-func NewCommentTagFromText(c string) *CommentTags {
-	// This is a temporary implementation.
-	prefix := fmt.Sprintf("+typewriter:types:aggregated=")
-	ct := NewCommentTags()
+func FullPath(n *types.Named) string {
+	return fmt.Sprintf("%s.%s", n.Obj().Pkg().Path(), n.Obj().Name())
+}
+
+func NewCommentTagFromText(c string) (*CommentMarkers, error) {
+	if !strings.Contains(c, CommentPrefix) {
+		return nil, nil
+	}
+	ct := NewCommentMarkers()
 	lines := strings.Split(c, "\n")
 	for _, l := range lines {
-		if strings.HasPrefix(l, prefix) {
-			ct.AddAggregated(strings.TrimPrefix(l, prefix))
+		if !strings.Contains(l, CommentPrefix) {
+			continue
+		}
+		sections := strings.Split(l, ":")
+		pair := strings.Split(sections[len(sections)-1], "=")
+		if len(pair) > 2 {
+			// TODO(muvaf): support multiple equalities in one line.
+			return nil, errors.Errorf("there cannot be more than one equality sign in the marker")
+		}
+		k := pair[0]
+		v := ""
+		if len(pair) == 2 {
+			v = pair[1]
+		}
+		if sections[1] == SectionTypes {
+			if _, ok := ct.Types[k]; !ok {
+				ct.Types[k] = nil
+			}
+			if v != "" {
+				ct.Types[k] = append(ct.Types[k], v)
+			}
+		} else {
+			return nil, errors.Errorf("only types section is currently supported in markers")
 		}
 	}
-	if len(ct.types.aggregated) == 0 {
-		return nil
-	}
-	return ct
+	return ct, nil
 }
 
 type objid struct {
@@ -63,8 +80,8 @@ type objid struct {
 	Line     int
 }
 
-func ScanCommentTags(p *packages.Package) map[*types.Named]*CommentTags {
-	result := map[*types.Named]*CommentTags{}
+func LoadCommentMarkers(p *packages.Package) (map[*types.Named]*CommentMarkers, error) {
+	result := map[*types.Named]*CommentMarkers{}
 	objPositions := map[objid]types.Object{}
 	for _, n := range p.Types.Scope().Names() {
 		o := p.Types.Scope().Lookup(n)
@@ -73,7 +90,10 @@ func ScanCommentTags(p *packages.Package) map[*types.Named]*CommentTags {
 	}
 	for _, f := range p.Syntax {
 		for _, g := range f.Comments {
-			ct := NewCommentTagFromText(g.Text())
+			ct, err := NewCommentTagFromText(g.Text())
+			if err != nil {
+				return nil, err
+			}
 			if ct == nil {
 				continue
 			}
@@ -90,7 +110,7 @@ func ScanCommentTags(p *packages.Package) map[*types.Named]*CommentTags {
 		}
 	}
 	if len(result) == 0 {
-		return nil
+		return nil, nil
 	}
-	return result
+	return result, nil
 }

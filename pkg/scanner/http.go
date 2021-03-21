@@ -1,7 +1,6 @@
 package scanner
 
 import (
-	"fmt"
 	"go/types"
 )
 
@@ -122,11 +121,11 @@ type RemoteCalls struct {
 	ReadOutputs     []*types.Named
 }
 
-func (r *RemoteCalls) AggregatedInput(tn *types.TypeName) (*types.Named, *CommentTags) {
+func (r *RemoteCalls) AggregatedInput(tn *types.TypeName) (*types.Named, *CommentMarkers) {
 	varMap := map[string]*types.Var{}
-	ct := NewCommentTags()
+	cm := NewCommentMarkers()
 	for _, c := range r.CreationInputs {
-		ct.AddAggregated(fmt.Sprintf("%s.%s", c.Obj().Pkg().Path(), c.Obj().Name()))
+		addAggregatedTypeMarker(cm, c)
 		cre := c.Underlying().(*types.Struct)
 		for i := 0; i < cre.NumFields(); i++ {
 			if r.ignore.input.ShouldIgnore(cre.Field(i)) {
@@ -136,7 +135,7 @@ func (r *RemoteCalls) AggregatedInput(tn *types.TypeName) (*types.Named, *Commen
 		}
 	}
 	for _, c := range r.ReadInputs {
-		ct.AddAggregated(fmt.Sprintf("%s.%s", c.Obj().Pkg().Path(), c.Obj().Name()))
+		addAggregatedTypeMarker(cm, c)
 		re := c.Underlying().(*types.Struct)
 		for i := 0; i < re.NumFields(); i++ {
 			if r.ignore.input.ShouldIgnore(re.Field(i)) {
@@ -146,7 +145,7 @@ func (r *RemoteCalls) AggregatedInput(tn *types.TypeName) (*types.Named, *Commen
 		}
 	}
 	for _, c := range r.UpdateInputs {
-		ct.AddAggregated(fmt.Sprintf("%s.%s", c.Obj().Pkg().Path(), c.Obj().Name()))
+		addAggregatedTypeMarker(cm, c)
 		u := c.Underlying().(*types.Struct)
 		for i := 0; i < u.NumFields(); i++ {
 			if r.ignore.input.ShouldIgnore(u.Field(i)) {
@@ -156,7 +155,7 @@ func (r *RemoteCalls) AggregatedInput(tn *types.TypeName) (*types.Named, *Commen
 		}
 	}
 	for _, c := range r.DeletionInputs {
-		ct.AddAggregated(fmt.Sprintf("%s.%s", c.Obj().Pkg().Path(), c.Obj().Name()))
+		addAggregatedTypeMarker(cm, c)
 		d := c.Underlying().(*types.Struct)
 		for i := 0; i < d.NumFields(); i++ {
 			if r.ignore.input.ShouldIgnore(d.Field(i)) {
@@ -172,14 +171,14 @@ func (r *RemoteCalls) AggregatedInput(tn *types.TypeName) (*types.Named, *Commen
 		i++
 	}
 	n := types.NewNamed(tn, types.NewStruct(fields, nil), nil)
-	return n, ct
+	return n, cm
 }
 
-func (r *RemoteCalls) AggregatedOutput(tn *types.TypeName) (*types.Named, *CommentTags) {
+func (r *RemoteCalls) AggregatedOutput(tn *types.TypeName) (*types.Named, *CommentMarkers) {
 	varMap := map[string]*types.Var{}
-	ct := NewCommentTags()
+	cm := NewCommentMarkers()
 	for _, c := range r.ReadOutputs {
-		ct.AddAggregated(fmt.Sprintf("%s.%s", c.Obj().Pkg().Path(), c.Obj().Name()))
+		addAggregatedTypeMarker(cm, c)
 		ro := c.Underlying().(*types.Struct)
 		for i := 0; i < ro.NumFields(); i++ {
 			if r.ignore.output.ShouldIgnore(ro.Field(i)) {
@@ -189,7 +188,7 @@ func (r *RemoteCalls) AggregatedOutput(tn *types.TypeName) (*types.Named, *Comme
 		}
 	}
 	for _, c := range r.CreationOutputs {
-		ct.AddAggregated(fmt.Sprintf("%s.%s", c.Obj().Pkg().Path(), c.Obj().Name()))
+		addAggregatedTypeMarker(cm, c)
 		co := c.Underlying().(*types.Struct)
 		for i := 0; i < co.NumFields(); i++ {
 			if r.ignore.output.ShouldIgnore(co.Field(i)) {
@@ -205,5 +204,15 @@ func (r *RemoteCalls) AggregatedOutput(tn *types.TypeName) (*types.Named, *Comme
 		i++
 	}
 	n := types.NewNamed(tn, types.NewStruct(fields, nil), nil)
-	return n, ct
+	return n, cm
+}
+
+func addAggregatedTypeMarker(cm *CommentMarkers, n *types.Named) {
+	fullPath := FullPath(n)
+	for _, ag := range cm.Types[SectionAggregated] {
+		if ag == fullPath {
+			return
+		}
+	}
+	cm.Types[SectionAggregated] = append(cm.Types[SectionAggregated], fullPath)
 }

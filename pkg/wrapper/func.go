@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"go/types"
+	"strings"
 	"text/template"
 
 	"github.com/muvaf/typewriter/pkg/traverser"
@@ -101,5 +102,5 @@ func (f *Func) Wrap(name string, a, b types.Type, extraInput map[string]interfac
 	}
 	result := &bytes.Buffer{}
 	err = t.Execute(result, ts)
-	return string(result.Bytes()), errors.Wrap(err, "cannot execute template")
+	return strings.ReplaceAll(result.String(), "\n\n", "\n"), errors.Wrap(err, "cannot execute template")
 }

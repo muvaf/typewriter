@@ -2,7 +2,6 @@ package scanner
 
 import (
 	"bytes"
-	"fmt"
 	"go/types"
 	"strings"
 	"text/template"
@@ -12,11 +11,11 @@ import (
 	"github.com/pkg/errors"
 )
 
-func NewTypePrinter(originPackagePath string, rootType *types.Named, commentTags []string, im *packages.Map, targetScope *types.Scope) *TypePrinter {
+func NewTypePrinter(originPackagePath string, rootType *types.Named, commentMarkers string, im *packages.Map, targetScope *types.Scope) *TypePrinter {
 	return &TypePrinter{
 		OriginPackagePath: originPackagePath,
 		RootType:          rootType,
-		CommentTags:       commentTags,
+		CommentMarkers:    commentMarkers,
 		Imports:           im,
 		TypeMap:           map[string]*types.Named{},
 		TargetScope:       targetScope,
@@ -26,7 +25,7 @@ func NewTypePrinter(originPackagePath string, rootType *types.Named, commentTags
 type TypePrinter struct {
 	OriginPackagePath string
 	RootType          *types.Named
-	CommentTags       []string
+	CommentMarkers    string
 	Imports           *packages.Map
 	TypeMap           map[string]*types.Named
 	TargetScope       *types.Scope
@@ -78,7 +77,7 @@ func (tp *TypePrinter) load(t *types.Named) {
 const (
 	TypeTmpl = `
 {{ .Comment }}
-{{- .CommentTags }}
+{{- .CommentMarkers }}
 type {{ .Name }} struct {
 {{ .Fields }}
 }`
@@ -88,10 +87,10 @@ type {{ .Name }} struct {
 )
 
 type TypeTmplInput struct {
-	Name        string
-	Fields      string
-	Comment     string
-	CommentTags string
+	Name           string
+	Fields         string
+	Comment        string
+	CommentMarkers string
 }
 
 type FieldTmplInput struct {
@@ -109,11 +108,7 @@ func (tp *TypePrinter) Print(targetName string) (string, error) {
 		}
 		if name == tp.RootType.Obj().Name() {
 			ti.Name = targetName
-			commentTags := ""
-			for _, tag := range tp.CommentTags {
-				commentTags = fmt.Sprintf("%s\n%s", commentTags, tag)
-			}
-			ti.CommentTags = commentTags
+			ti.CommentMarkers = tp.CommentMarkers
 		}
 		// If the type already exists in the package, we assume it's the same
 		// as the one we use here.
@@ -141,6 +136,7 @@ func (tp *TypePrinter) Print(targetName string) (string, error) {
 			}
 			ti.Fields += result.String()
 		}
+		ti.Fields = strings.ReplaceAll(ti.Fields, "\n\n", "\n")
 		t, err := template.New("func").Parse(TypeTmpl)
 		if err != nil {
 			return "", errors.Wrap(err, "cannot parse template")

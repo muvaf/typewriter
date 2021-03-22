@@ -30,7 +30,7 @@ func (ct *CommentMarkers) Print() string {
 	out := ""
 	for k, va := range ct.Types {
 		for _, v := range va {
-			out += fmt.Sprintf("// +typewriter:%s:%s=%s\n", SectionTypes, k, v)
+			out += fmt.Sprintf("\n// +typewriter:%s:%s=%s", SectionTypes, k, v)
 		}
 	}
 	return out

@@ -1,7 +1,16 @@
 package main
 
 import (
+	"bytes"
+	"io/ioutil"
+	"os"
+	"os/exec"
 	"path/filepath"
+	"strings"
+
+	"github.com/pkg/errors"
+
+	"github.com/muvaf/typewriter/pkg/wrapper"
 
 	"github.com/muvaf/typewriter/pkg/packages"
 
@@ -28,18 +37,45 @@ func main() {
 
 func PrintProducers(pkgPath, targetPkgPath string, disableLinter bool) error {
 	c := packages.NewCache()
-	f := cmd.File{
+	targetPkgName := targetPkgPath[strings.LastIndex(targetPkgPath, "/")+1:]
+	tmplPath := "/Users/monus/go/src/github.com/muvaf/typewriter/internal/templates/producers.go.tmpl"
+	headerPath := "/Users/monus/go/src/github.com/muvaf/typewriter/internal/header.txt"
+	file := wrapper.NewFile(targetPkgName, tmplPath,
+		wrapper.WithHeaderPath(headerPath),
+	)
+	vars := map[string]interface{}{}
+	f := cmd.Functions{
+		Imports:           file.Imports,
 		SourcePackagePath: pkgPath,
-		TargetFilePath:    filepath.Join(targetPkgPath, "producers.go"),
-		// TODO(muvaf): New Go version allows embedding files in the binary. Consider
-		// using that
-		FileTemplatePath:  "/Users/monus/go/src/github.com/muvaf/typewriter/internal/templates/producers.go.tmpl",
-		LicenseHeaderPath: "/Users/monus/go/src/github.com/muvaf/typewriter/internal/header.txt",
 		Cache:             c,
-		DisableLinter:     disableLinter,
 		NewGeneratorFns: []cmd.NewGeneratorFn{
 			cmd.NewProducer,
 		},
 	}
-	return f.Run()
+	fns, err := f.Run()
+	if err != nil {
+		return err
+	}
+	for k, v := range fns {
+		vars[k] = v
+	}
+	final, err := file.Wrap(vars)
+	if err != nil {
+		return err
+	}
+	if !disableLinter {
+		fb := bytes.NewBuffer(final)
+		command := exec.Command("goimports")
+		command.Stdin = fb
+		outb := &bytes.Buffer{}
+		command.Stdout = outb
+		if err := command.Run(); err != nil {
+			return errors.Wrap(err, "goimports failed")
+		}
+		final = outb.Bytes()
+	}
+	if err := os.MkdirAll(targetPkgPath, os.ModePerm); err != nil {
+		return errors.Wrapf(err, "cannot create target package directory %s", targetPkgPath)
+	}
+	return errors.Wrap(ioutil.WriteFile(filepath.Join(targetPkgPath, "producers.go"), final, os.ModePerm), "cannot write to target file path")
 }

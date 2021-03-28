@@ -1,23 +1,16 @@
 package cmd
 
 import (
-	"bytes"
 	"go/types"
-	"io/ioutil"
-	"os"
-	"os/exec"
-	"strings"
-
-	packages2 "github.com/muvaf/typewriter/pkg/packages"
-
-	"github.com/muvaf/typewriter/pkg/wrapper"
 
 	"github.com/pkg/errors"
+
+	"github.com/muvaf/typewriter/pkg/packages"
 )
 
 type GeneratorChain []Generator
 
-func (gc GeneratorChain) Generate(t *types.Named, cm *packages2.CommentMarkers) (map[string]interface{}, error) {
+func (gc GeneratorChain) Generate(t *types.Named, cm *packages.CommentMarkers) (map[string]interface{}, error) {
 	result := map[string]interface{}{}
 	for i, g := range gc {
 		if !g.Matches(cm) {
@@ -34,61 +27,35 @@ func (gc GeneratorChain) Generate(t *types.Named, cm *packages2.CommentMarkers) 
 	return result, nil
 }
 
-type File struct {
+type Functions struct {
+	Imports           *packages.Map
 	SourcePackagePath string
-	TargetFilePath    string
-	FileTemplatePath  string
-	LicenseHeaderPath string
-	DisableLinter     bool
 	NewGeneratorFns   []NewGeneratorFn
-	Cache             *packages2.Cache
+	Cache             *packages.Cache
 }
 
-func (f *File) Run() error {
+func (f *Functions) Run() (map[string]interface{}, error) {
 	sourcePkg, err := f.Cache.GetPackage(f.SourcePackagePath)
 	if err != nil {
-		return errors.Wrap(err, "cannot get source package")
+		return nil, errors.Wrap(err, "cannot get source package")
 	}
-	recipe, err := packages2.LoadCommentMarkers(sourcePkg)
+	recipe, err := packages.LoadCommentMarkers(sourcePkg)
 	if err != nil {
-		return errors.Wrap(err, "cannot scan comment markers")
+		return nil, errors.Wrap(err, "cannot scan comment markers")
 	}
-	targetPkgPath := f.TargetFilePath[:strings.LastIndex(f.TargetFilePath, "/")]
-	targetPkgName := targetPkgPath[strings.LastIndex(targetPkgPath, "/")+1:]
-	file := wrapper.NewFile(targetPkgName, f.FileTemplatePath,
-		wrapper.WithHeaderPath(f.LicenseHeaderPath),
-	)
 	gens := GeneratorChain{}
 	for _, fn := range f.NewGeneratorFns {
-		gens = append(gens, fn(f.Cache, file.Imports))
+		gens = append(gens, fn(f.Cache, f.Imports))
 	}
 	input := map[string]interface{}{}
 	for sourceType, commentMarker := range recipe {
 		generated, err := gens.Generate(sourceType, commentMarker)
 		if err != nil {
-			return errors.Wrapf(err, "cannot run generators for type %s", sourceType.Obj().Name())
+			return nil, errors.Wrapf(err, "cannot run generators for type %s", sourceType.Obj().Name())
 		}
 		for k, v := range generated {
 			input[k] = v
 		}
 	}
-	if err := os.MkdirAll(targetPkgPath, os.ModePerm); err != nil {
-		return errors.Wrapf(err, "cannot create target package directory %s", targetPkgPath)
-	}
-	final, err := file.Wrap(input)
-	if err != nil {
-		return err
-	}
-	if !f.DisableLinter {
-		fb := bytes.NewBuffer(final)
-		cmd := exec.Command("goimports")
-		cmd.Stdin = fb
-		outb := &bytes.Buffer{}
-		cmd.Stdout = outb
-		if err := cmd.Run(); err != nil {
-			return errors.Wrap(err, "goimports failed")
-		}
-		final = outb.Bytes()
-	}
-	return errors.Wrap(ioutil.WriteFile(f.TargetFilePath, final, os.ModePerm), "cannot write to target file path")
+	return input, nil
 }

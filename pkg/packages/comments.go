@@ -18,17 +18,17 @@ const (
 
 func NewCommentMarkers() *CommentMarkers {
 	return &CommentMarkers{
-		Types: map[string][]string{},
+		SectionContents: map[string][]string{},
 	}
 }
 
 type CommentMarkers struct {
-	Types map[string][]string
+	SectionContents map[string][]string
 }
 
 func (ct *CommentMarkers) Print() string {
 	out := ""
-	for k, va := range ct.Types {
+	for k, va := range ct.SectionContents {
 		for _, v := range va {
 			out += fmt.Sprintf("\n// +typewriter:%s:%s=%s", SectionTypes, k, v)
 		}
@@ -62,11 +62,11 @@ func NewCommentTagFromText(c string) (*CommentMarkers, error) {
 			v = pair[1]
 		}
 		if sections[1] == SectionTypes {
-			if _, ok := ct.Types[k]; !ok {
-				ct.Types[k] = nil
+			if _, ok := ct.SectionContents[k]; !ok {
+				ct.SectionContents[k] = nil
 			}
 			if v != "" {
-				ct.Types[k] = append(ct.Types[k], v)
+				ct.SectionContents[k] = append(ct.SectionContents[k], v)
 			}
 		} else {
 			return nil, errors.Errorf("only types section is currently supported in markers")

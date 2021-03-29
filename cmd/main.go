@@ -48,7 +48,7 @@ func PrintProducers(pkgPath, targetPkgPath string, disableLinter bool) error {
 		Imports:           file.Imports,
 		SourcePackagePath: pkgPath,
 		Cache:             c,
-		NewGeneratorFns: []cmd.NewGeneratorFn{
+		NewGeneratorFns: []cmd.NewFuncGeneratorFn{
 			cmd.NewProducer,
 		},
 	}

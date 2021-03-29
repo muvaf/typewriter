@@ -5,14 +5,14 @@ import (
 	"strings"
 )
 
-func NewMap(selfPackage string) *Map {
-	return &Map{
+func NewImports(selfPackage string) *Imports {
+	return &Imports{
 		Package: selfPackage,
 		Imports: map[string]string{},
 	}
 }
 
-type Map struct {
+type Imports struct {
 	Package string
 	Imports map[string]string
 }
@@ -21,7 +21,7 @@ type Map struct {
 
 // UseType adds the package to the import map and returns the alias you
 // can use in that Go file.
-func (m *Map) UseType(in string) string {
+func (m *Imports) UseType(in string) string {
 	pkg, typeNameFmt := parseTypeDec(in)
 	if isBuiltIn(typeNameFmt) {
 		return in

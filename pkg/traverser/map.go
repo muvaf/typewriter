@@ -33,7 +33,7 @@ type DefaultMapTmplInput struct {
 	Statements string
 }
 
-func NewMap(im *packages.Map) *Map {
+func NewMap(im *packages.Imports) *Map {
 	return &Map{
 		Template: DefaultMapTmpl,
 		Imports:  im,
@@ -42,7 +42,7 @@ func NewMap(im *packages.Map) *Map {
 
 type Map struct {
 	Template  string
-	Imports   *packages.Map
+	Imports   *packages.Imports
 	Recursive GenericTraverser
 }
 

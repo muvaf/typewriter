@@ -8,7 +8,7 @@ import (
 	"github.com/muvaf/typewriter/pkg/packages"
 )
 
-type GeneratorChain []Generator
+type GeneratorChain []FuncGenerator
 
 func (gc GeneratorChain) Generate(t *types.Named, cm *packages.CommentMarkers) (map[string]interface{}, error) {
 	result := map[string]interface{}{}
@@ -28,9 +28,9 @@ func (gc GeneratorChain) Generate(t *types.Named, cm *packages.CommentMarkers) (
 }
 
 type Functions struct {
-	Imports           *packages.Map
+	Imports           *packages.Imports
 	SourcePackagePath string
-	NewGeneratorFns   []NewGeneratorFn
+	NewGeneratorFns   []NewFuncGeneratorFn
 	Cache             *packages.Cache
 }
 

@@ -31,7 +31,7 @@ type PointerTmplInput struct {
 	Statements      string
 }
 
-func NewPointer(im *packages.Map) *Pointer {
+func NewPointer(im *packages.Imports) *Pointer {
 	return &Pointer{
 		Template: DefaultPointerTmpl,
 		Imports:  im,
@@ -40,7 +40,7 @@ func NewPointer(im *packages.Map) *Pointer {
 
 type Pointer struct {
 	Template string
-	Imports  *packages.Map
+	Imports  *packages.Imports
 	Type     GenericTraverser
 }
 

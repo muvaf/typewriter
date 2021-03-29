@@ -6,9 +6,9 @@ import (
 	"github.com/muvaf/typewriter/pkg/packages"
 )
 
-type NewGeneratorFn func(*packages.Cache, *packages.Map) Generator
+type NewFuncGeneratorFn func(*packages.Cache, *packages.Imports) FuncGenerator
 
-type Generator interface {
+type FuncGenerator interface {
 	Generate(t *types.Named, cm *packages.CommentMarkers) (map[string]interface{}, error)
 	Matches(cm *packages.CommentMarkers) bool
 }

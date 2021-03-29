@@ -11,7 +11,7 @@ import (
 	"github.com/pkg/errors"
 )
 
-func NewTypePrinter(originPackagePath string, rootType *types.Named, commentMarkers string, im *packages.Map, targetScope *types.Scope) *TypePrinter {
+func NewTypePrinter(originPackagePath string, rootType *types.Named, commentMarkers string, im *packages.Imports, targetScope *types.Scope) *TypePrinter {
 	return &TypePrinter{
 		OriginPackagePath: originPackagePath,
 		RootType:          rootType,
@@ -26,7 +26,7 @@ type TypePrinter struct {
 	OriginPackagePath string
 	RootType          *types.Named
 	CommentMarkers    string
-	Imports           *packages.Map
+	Imports           *packages.Imports
 	TypeMap           map[string]*types.Named
 	TargetScope       *types.Scope
 }

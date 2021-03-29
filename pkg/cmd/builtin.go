@@ -11,7 +11,7 @@ import (
 	"github.com/pkg/errors"
 )
 
-func NewProducer(cache *packages.Cache, im *packages.Map) Generator {
+func NewProducer(cache *packages.Cache, im *packages.Imports) FuncGenerator {
 	if cache == nil {
 		cache = packages.NewCache()
 	}
@@ -23,12 +23,12 @@ func NewProducer(cache *packages.Cache, im *packages.Map) Generator {
 
 type Producer struct {
 	cache   *packages.Cache
-	imports *packages.Map
+	imports *packages.Imports
 }
 
 func (p *Producer) Generate(source *types.Named, cm *packages.CommentMarkers) (map[string]interface{}, error) {
 	result := ""
-	aggregated := cm.Types[packages.SectionAggregated]
+	aggregated := cm.SectionContents[packages.SectionAggregated]
 	for _, target := range aggregated {
 		targetType, err := p.cache.GetType(target)
 		if err != nil {
@@ -47,6 +47,5 @@ func (p *Producer) Generate(source *types.Named, cm *packages.CommentMarkers) (m
 }
 
 func (p *Producer) Matches(cm *packages.CommentMarkers) bool {
-	_, ok := cm.Types[packages.SectionAggregated]
-	return ok && len(cm.Types[packages.SectionAggregated]) > 0
+	return len(cm.SectionContents[packages.SectionAggregated]) > 0
 }

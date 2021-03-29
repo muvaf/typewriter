@@ -28,7 +28,7 @@ type SliceTmplInput struct {
 	Statements string
 }
 
-func NewSlice(im *packages.Map) *Slice {
+func NewSlice(im *packages.Imports) *Slice {
 	return &Slice{
 		Imports:  im,
 		Template: DefaultSliceTmpl,
@@ -37,7 +37,7 @@ func NewSlice(im *packages.Map) *Slice {
 
 type Slice struct {
 	Template string
-	Imports  *packages.Map
+	Imports  *packages.Imports
 	Generic  GenericTraverser
 }
 

@@ -11,7 +11,7 @@ import (
 	"github.com/pkg/errors"
 )
 
-func WithImports(im *packages.Map) FileOption {
+func WithImports(im *packages.Imports) FileOption {
 	return func(f *File) {
 		f.Imports = im
 	}
@@ -29,7 +29,7 @@ func NewFile(pkg, tmplPath string, opts ...FileOption) *File {
 	f := &File{
 		Package:      pkg,
 		TemplatePath: tmplPath,
-		Imports:      packages.NewMap(pkg),
+		Imports:      packages.NewImports(pkg),
 	}
 	for _, fn := range opts {
 		fn(f)
@@ -41,7 +41,7 @@ type File struct {
 	HeaderPath   string
 	TemplatePath string
 	Package      string
-	Imports      *packages.Map
+	Imports      *packages.Imports
 }
 
 // Wrap writes the objects to the file one by one.

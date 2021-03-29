@@ -31,7 +31,7 @@ func WithTemplate(t string) FuncOption {
 
 type FuncOption func(p *Func)
 
-func NewFunc(im *packages.Map, tr traverser.GenericTraverser, opts ...FuncOption) *Func {
+func NewFunc(im *packages.Imports, tr traverser.GenericTraverser, opts ...FuncOption) *Func {
 	f := &Func{
 		Imports:   im,
 		Traverser: tr,
@@ -44,7 +44,7 @@ func NewFunc(im *packages.Map, tr traverser.GenericTraverser, opts ...FuncOption
 }
 
 type Func struct {
-	Imports   *packages.Map
+	Imports   *packages.Imports
 	Traverser traverser.GenericTraverser
 	Template  string
 }

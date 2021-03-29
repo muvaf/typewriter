@@ -69,7 +69,7 @@ func WithSliceTemplate(t string) Option {
 
 type Option func(*Generic)
 
-func NewGeneric(im *packages.Map, opts ...Option) *Generic {
+func NewGeneric(im *packages.Imports, opts ...Option) *Generic {
 	g := &Generic{
 		Imports: im,
 		Slice:   NewSlice(im),
@@ -89,7 +89,7 @@ func NewGeneric(im *packages.Map, opts ...Option) *Generic {
 }
 
 type Generic struct {
-	Imports *packages.Map
+	Imports *packages.Imports
 	Named   NamedTraverser
 	Slice   SliceTraverser
 	Basic   BasicTraverser

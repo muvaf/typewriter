@@ -211,10 +211,10 @@ func (r *RemoteCalls) AggregatedOutput(tn *types.TypeName) (*types.Named, *packa
 
 func addAggregatedTypeMarker(cm *packages.CommentMarkers, n *types.Named) {
 	fullPath := packages.FullPath(n)
-	for _, ag := range cm.Types[packages.SectionAggregated] {
+	for _, ag := range cm.SectionContents[packages.SectionAggregated] {
 		if ag == fullPath {
 			return
 		}
 	}
-	cm.Types[packages.SectionAggregated] = append(cm.Types[packages.SectionAggregated], fullPath)
+	cm.SectionContents[packages.SectionAggregated] = append(cm.SectionContents[packages.SectionAggregated], fullPath)
 }

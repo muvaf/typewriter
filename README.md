@@ -5,49 +5,74 @@ Typewriter is a framework for building code generation tools to produce Go code.
 ## Quick Start
 
 You can see how a simple code-generation code flow works by using built-in `Producer`
-generator. You'll find the following struct in `examples/producer/app`:
+generator.
+
+Let's say we have two versions of a database scheme for `User` and `Belonging`
+objects. In order to keep the systems working, we have variants of both objects
+in our app like the following:
 
 ```go
-type User struct {
-	Name       string
-	Id         int
-	Belongings []Belonging
-	UserGroup  string
+type UserV1 struct {
+    Name       string
+    Surname    string
+    Identifier int
+    Belongings []BelongingV1
 }
 
-type Belonging struct {
-	Cars []string
+type BelongingV1 struct {
+    Automobiles []string
+}
+```
+```go
+type UserV2 struct {
+    Name       string
+    Id         int
+    Belongings []BelongingV2
+    UserGroup  string
+}
+
+type BelongingV2 struct {
+    Cars []string
 }
 ```
 
-What we want to do is to use this `User` to produce another object whose type
-is defined in another package, let's say SDK of another system. Here is how it
-looks like from `examples/producer/sdk`:
+> You can find these structs in `examples/producer/db`.
+
+In order for our app to work with these two different schemes in database, we
+employ structs that are aggregated versions of two versions:
 
 ```go
-type SDKUser struct {
-	Name       string
-	Id         int
-	Belongings []SDKBelonging
+type UserAll struct {
+    Name       string
+    Surname    string
+    Id         int
+    Identifier int
+    UserGroup  string
+    Belongings []BelongingAll
 }
 
-type SDKBelonging struct {
-	Cars []string
+type BelongingAll struct {
+    Automobiles []string
+    Cars        []string
 }
 ```
 
-You can see that `sdk.SDKUser` is a subset of `app.User` and there likely are
-differences in attached methods as well. What we want to do is to write a function
-that will produce an `sdk.SDKUser` object with the information in `app.User`.
+> You can find these structs in `examples/producer/app`.
 
-We will mark `User` by adding the following comment so that typewriter can know
-which type to convert it to:
+Now we need functions that takes `UserAll` and produce `UserV1` and `UserV2` so
+that we can choose whichever is needed depending on the use case. These functions
+are pure iteration and assignment operations, but they are hard to test for all
+cases and error prone when written by a human. So, we will generate them using
+a built-in function generator, `Producer`. Let's mark `UserAll` by adding the
+following comment so that typewriter can know which types to convert it to:
 ```
-// +typewriter:types:aggregated=github.com/muvaf/typewriter/examples/producer/sdk.SDKUser
+// +typewriter:types:aggregated=github.com/muvaf/typewriter/examples/producer/db.UserV1
+// +typewriter:types:aggregated=github.com/muvaf/typewriter/examples/producer/db.UserV2
 ```
 
 > Typewriter uses standard package loading mechanisms that Go build tooling uses
-> in the folder it's run. The package here can be either local URL or a remote one.
+> in the folder it's run. The package here can be either a local URL or a remote
+> one.
 
 Let's run the following function:
 ```bash
@@ -62,17 +87,39 @@ package producer
 
 import (
 	app "github.com/muvaf/typewriter/examples/producer/app"
-	sdk "github.com/muvaf/typewriter/examples/producer/sdk"
+	db "github.com/muvaf/typewriter/examples/producer/db"
 )
 
-// GenerateSDKUser returns a new sdk.SDKUser with the information from
-// given app.User.
-func GenerateSDKUser(a app.User) sdk.SDKUser {
-	b := sdk.SDKUser{}
+// GenerateUserV1 returns a new db.UserV1 with the information from
+// given app.UserAll.
+func GenerateUserV1(a app.UserAll) db.UserV1 {
+	b := db.UserV1{}
+	b.Name = a.Name
+	b.Surname = a.Surname
+	b.Identifier = a.Identifier
+	if len(a.Belongings) != 0 {
+		b.Belongings = make([]db.BelongingV1, len(a.Belongings))
+		for v0 := range a.Belongings {
+			if len(a.Belongings[v0].Automobiles) != 0 {
+				b.Belongings[v0].Automobiles = make([]string, len(a.Belongings[v0].Automobiles))
+				for v1 := range a.Belongings[v0].Automobiles {
+					b.Belongings[v0].Automobiles[v1] = a.Belongings[v0].Automobiles[v1]
+				}
+			}
+		}
+	}
+	return b
+}
+
+// GenerateUserV2 returns a new db.UserV2 with the information from
+// given app.UserAll.
+func GenerateUserV2(a app.UserAll) db.UserV2 {
+	b := db.UserV2{}
 	b.Name = a.Name
 	b.Id = a.Id
+	b.UserGroup = a.UserGroup
 	if len(a.Belongings) != 0 {
-		b.Belongings = make([]sdk.SDKBelonging, len(a.Belongings))
+		b.Belongings = make([]db.BelongingV2, len(a.Belongings))
 		for v0 := range a.Belongings {
 			if len(a.Belongings[v0].Cars) != 0 {
 				b.Belongings[v0].Cars = make([]string, len(a.Belongings[v0].Cars))
@@ -85,6 +132,10 @@ func GenerateSDKUser(a app.User) sdk.SDKUser {
 	return b
 }
 ```
+
+Now we can use these functions wherever we need them.
+
+## Adding New Generators
 
 You can take a look at `cmd/main.go` to see how `cmd.File` is used to generate a
 file. It accepts a list of `NewGeneratorFn`s and `cmd.NewProducer` is a built-in
@@ -99,6 +150,11 @@ and use it as reference for your own generator implementations.
 object whose type is `B` from an input object whose type is `A` by recursively
 traversing all fields and structs, matching the fields and writing assignment
 statements.
+
+You'll see that it's a very lean function generator implementation as it uses
+the [built-in assignment templates](pkg/traverser/basic.go). You can provide your own templates to be used
+for basic kind iterations and be creative about what you're doing for each matched
+field pair!
 
 ### Type Generation
 

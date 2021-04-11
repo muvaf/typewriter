@@ -93,12 +93,13 @@ and use it as reference for your own generator implementations.
 
 ## Code Generator Types
 
-### Type Generation
-
-We have aggregated type generation.
-
-Section to be filled.
-
 ### Function Generation
 
-`Producer` is a function generator.
+`Producer` is a function generator that generates functions that can produce an
+object whose type is `B` from an input object whose type is `A` by recursively
+traversing all fields and structs, matching the fields and writing assignment
+statements.
+
+### Type Generation
+
+Section to be filled.

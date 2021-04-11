@@ -20,17 +20,39 @@ package producer
 
 import (
 	app "github.com/muvaf/typewriter/examples/producer/app"
-	sdk "github.com/muvaf/typewriter/examples/producer/sdk"
+	db "github.com/muvaf/typewriter/examples/producer/db"
 )
 
-// GenerateSDKUser returns a new sdk.SDKUser with the information from
-// given app.User.
-func GenerateSDKUser(a app.User) sdk.SDKUser {
-	b := sdk.SDKUser{}
+// GenerateUserV1 returns a new db.UserV1 with the information from
+// given app.UserAll.
+func GenerateUserV1(a app.UserAll) db.UserV1 {
+	b := db.UserV1{}
+	b.Name = a.Name
+	b.Surname = a.Surname
+	b.Identifier = a.Identifier
+	if len(a.Belongings) != 0 {
+		b.Belongings = make([]db.BelongingV1, len(a.Belongings))
+		for v0 := range a.Belongings {
+			if len(a.Belongings[v0].Automobiles) != 0 {
+				b.Belongings[v0].Automobiles = make([]string, len(a.Belongings[v0].Automobiles))
+				for v1 := range a.Belongings[v0].Automobiles {
+					b.Belongings[v0].Automobiles[v1] = a.Belongings[v0].Automobiles[v1]
+				}
+			}
+		}
+	}
+	return b
+}
+
+// GenerateUserV2 returns a new db.UserV2 with the information from
+// given app.UserAll.
+func GenerateUserV2(a app.UserAll) db.UserV2 {
+	b := db.UserV2{}
 	b.Name = a.Name
 	b.Id = a.Id
+	b.UserGroup = a.UserGroup
 	if len(a.Belongings) != 0 {
-		b.Belongings = make([]sdk.SDKBelonging, len(a.Belongings))
+		b.Belongings = make([]db.BelongingV2, len(a.Belongings))
 		for v0 := range a.Belongings {
 			if len(a.Belongings[v0].Cars) != 0 {
 				b.Belongings[v0].Cars = make([]string, len(a.Belongings[v0].Cars))

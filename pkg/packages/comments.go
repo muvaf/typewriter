@@ -11,9 +11,9 @@ import (
 )
 
 const (
-	CommentPrefix     = "+typewriter"
-	SectionTypes      = "types"
-	SectionAggregated = "aggregated"
+	CommentPrefix = "+typewriter"
+	SectionTypes  = "types"
+	SectionMerged = "merged"
 )
 
 func NewCommentMarkers() *CommentMarkers {

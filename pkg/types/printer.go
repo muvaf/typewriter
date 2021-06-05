@@ -1,4 +1,4 @@
-package scanner
+package types
 
 import (
 	"bytes"
@@ -11,31 +11,21 @@ import (
 	"github.com/pkg/errors"
 )
 
-func NewTypePrinter(originPackagePath string, rootType *types.Named, commentMarkers string, im *packages.Imports, targetScope *types.Scope) *TypePrinter {
-	return &TypePrinter{
-		OriginPackagePath: originPackagePath,
-		RootType:          rootType,
-		CommentMarkers:    commentMarkers,
-		Imports:           im,
-		TypeMap:           map[string]*types.Named{},
-		TargetScope:       targetScope,
+func NewTypePrinter(im *packages.Imports, targetScope *types.Scope) *Printer {
+	return &Printer{
+		Imports:     im,
+		TypeMap:     map[string]*types.Named{},
+		TargetScope: targetScope,
 	}
 }
 
-type TypePrinter struct {
-	OriginPackagePath string
-	RootType          *types.Named
-	CommentMarkers    string
-	Imports           *packages.Imports
-	TypeMap           map[string]*types.Named
-	TargetScope       *types.Scope
+type Printer struct {
+	Imports     *packages.Imports
+	TypeMap     map[string]*types.Named
+	TargetScope *types.Scope
 }
 
-func (tp *TypePrinter) Parse() {
-	tp.load(tp.RootType)
-}
-
-func (tp *TypePrinter) load(t *types.Named) {
+func (tp *Printer) load(t *types.Named) {
 	s, ok := t.Underlying().(*types.Struct)
 	if !ok {
 		// might be function
@@ -100,15 +90,15 @@ type FieldTmplInput struct {
 	Comment string
 }
 
-func (tp *TypePrinter) Print(targetName string) (string, error) {
+func (tp *Printer) Print(rootType *types.Named, commentMarkers string) (string, error) {
+	tp.load(rootType)
 	out := ""
 	for name, n := range tp.TypeMap {
 		ti := &TypeTmplInput{
 			Name: name,
 		}
-		if name == tp.RootType.Obj().Name() {
-			ti.Name = targetName
-			ti.CommentMarkers = tp.CommentMarkers
+		if name == rootType.Obj().Name() {
+			ti.CommentMarkers = commentMarkers
 		}
 		// If the type already exists in the package, we assume it's the same
 		// as the one we use here.
@@ -120,7 +110,30 @@ func (tp *TypePrinter) Print(targetName string) (string, error) {
 			f := s.Field(i)
 			// The structs in the remote package are known to be copied, so the
 			// types should reference the local copies.
-			remoteType := strings.ReplaceAll(f.Type().String(), tp.OriginPackagePath, tp.Imports.Package)
+			remoteType := f.Type().String()
+			var tnamed *types.Named
+			switch o := f.Type().(type) {
+			case *types.Pointer:
+				tn, ok := o.Elem().(*types.Named)
+				if ok {
+					tnamed = tn
+				}
+			case *types.Slice:
+				tn, ok := o.Elem().(*types.Named)
+				if ok {
+					tnamed = tn
+				}
+			case *types.Map:
+				tn, ok := o.Elem().(*types.Named)
+				if ok {
+					tnamed = tn
+				}
+			case *types.Named:
+				tnamed = o
+			}
+			if tnamed != nil {
+				remoteType = strings.ReplaceAll(f.Type().String(), tnamed.Obj().Pkg().Path(), tp.Imports.Package)
+			}
 			fi := &FieldTmplInput{
 				Name: f.Name(),
 				Type: tp.Imports.UseType(remoteType),

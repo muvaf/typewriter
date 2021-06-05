@@ -28,9 +28,9 @@ type Producer struct {
 
 func (p *Producer) Generate(source *types.Named, cm *packages.CommentMarkers) (map[string]interface{}, error) {
 	result := ""
-	aggregated := cm.SectionContents[packages.SectionAggregated]
+	aggregated := cm.SectionContents[packages.SectionMerged]
 	for _, target := range aggregated {
-		targetType, err := p.cache.GetType(target)
+		targetType, err := p.cache.GetTypeWithFullPath(target)
 		if err != nil {
 			return nil, errors.Wrap(err, "cannot get target type")
 		}
@@ -47,5 +47,5 @@ func (p *Producer) Generate(source *types.Named, cm *packages.CommentMarkers) (m
 }
 
 func (p *Producer) Matches(cm *packages.CommentMarkers) bool {
-	return len(cm.SectionContents[packages.SectionAggregated]) > 0
+	return len(cm.SectionContents[packages.SectionMerged]) > 0
 }

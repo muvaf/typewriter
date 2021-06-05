@@ -12,3 +12,7 @@ type FuncGenerator interface {
 	Generate(t *types.Named, cm *packages.CommentMarkers) (map[string]interface{}, error)
 	Matches(cm *packages.CommentMarkers) bool
 }
+
+type TypeGenerator interface {
+	Generate() (*types.Named, *packages.CommentMarkers, error)
+}

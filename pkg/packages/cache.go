@@ -62,22 +62,24 @@ func (pc *Cache) GetType(packagePath, name string) (*types.Named, error) {
 	return nil, errors.Errorf("type %s is not a named struct", name)
 }
 
-func (pc *Cache) GetPackage(path string) (*packages.Package, error) {
+// GetPackage accepts absolute local path or Go module path and returns a single
+// package. It caches by Go module path in both cases.
+func (pc *Cache) GetPackage(absolutePath string) (*packages.Package, error) {
 	// Path could be local path or module path but we cache with module path.
 	// Since local path has the module path as suffix albeit we don't really know
 	// the seperator, we can iterate and find any package whose path has given path
 	// as suffix.
 	for p, pkg := range pc.store {
-		if strings.HasSuffix(path, p) {
+		if strings.HasSuffix(absolutePath, p) {
 			return pkg, nil
 		}
 	}
-	pkgs, err := packages.Load(&packages.Config{Mode: LoadMode}, path)
+	pkgs, err := packages.Load(&packages.Config{Mode: LoadMode}, absolutePath)
 	if err != nil {
-		return nil, errors.Wrapf(err, "cannot load packages in %s", path)
+		return nil, errors.Wrapf(err, "cannot load packages in %s", absolutePath)
 	}
 	for _, pkg := range pkgs {
-		if strings.HasSuffix(path, pkg.PkgPath) {
+		if strings.HasSuffix(absolutePath, pkg.PkgPath) {
 			if len(pkg.Errors) != 0 {
 				errStr := ""
 				for _, e := range pkg.Errors {
@@ -89,5 +91,5 @@ func (pc *Cache) GetPackage(path string) (*packages.Package, error) {
 			return pkg, nil
 		}
 	}
-	return nil, errors.Errorf("cannot find package in %s", path)
+	return nil, errors.Errorf("cannot find package in %s", absolutePath)
 }

@@ -69,24 +69,30 @@ type Merger struct {
 
 func (m *Merger) Generate() (*types.Named, *packages.CommentMarkers, error) {
 	varMap := map[string]*types.Var{}
+	tagMap := map[string]string{}
 	cm := packages.NewCommentMarkers()
 	for _, c := range m.InputTypes {
 		addMergedTypeMarker(cm, c)
-		cre := c.Underlying().(*types.Struct)
-		for i := 0; i < cre.NumFields(); i++ {
-			if m.filter.ignore.ShouldIgnore(cre.Field(i)) {
+		in := c.Underlying().(*types.Struct)
+		for i := 0; i < in.NumFields(); i++ {
+			if m.filter.ignore.ShouldIgnore(in.Field(i)) {
 				continue
 			}
-			varMap[cre.Field(i).Name()] = cre.Field(i)
+			varMap[in.Field(i).Name()] = in.Field(i)
+			tagMap[in.Field(i).Name()] = in.Tag(i)
 		}
 	}
 	fields := make([]*types.Var, len(varMap))
+	tags := make([]string, len(varMap))
 	i := 0
-	for _, v := range varMap {
+	for name, v := range varMap {
 		fields[i] = v
+		if t, ok := tagMap[name]; ok {
+			tags[i] = t
+		}
 		i++
 	}
-	n := types.NewNamed(m.TypeName, types.NewStruct(fields, nil), nil)
+	n := types.NewNamed(m.TypeName, types.NewStruct(fields, tags), nil)
 	return n, cm, nil
 }
 

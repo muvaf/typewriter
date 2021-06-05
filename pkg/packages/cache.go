@@ -24,17 +24,23 @@ type Cache struct {
 	store map[string]*packages.Package
 }
 
+// GetTypeWithFullPath returns the type information of the type in given path. The expected
+// format is "<package path>.<type name>".
+func (pc *Cache) GetTypeWithFullPath(fullPath string) (*types.Named, error) {
+	path, name := fullPath[:strings.LastIndex(fullPath, ".")], fullPath[strings.LastIndex(fullPath, ".")+1:]
+	return pc.GetType(path, name)
+}
+
 // GetType returns the type information of the type in given path. The expected
 // format is "<package path>.<type name>".
-func (pc *Cache) GetType(fullPath string) (*types.Named, error) {
-	path, name := fullPath[:strings.LastIndex(fullPath, ".")], fullPath[strings.LastIndex(fullPath, ".")+1:]
-	p, err := pc.GetPackage(path)
+func (pc *Cache) GetType(packagePath, name string) (*types.Named, error) {
+	p, err := pc.GetPackage(packagePath)
 	if err != nil {
 		return nil, errors.Wrap(err, "cannot get package")
 	}
 	o := p.Types.Scope().Lookup(name)
 	if o == nil {
-		return nil, errors.Errorf("cannot find given type %s in package %s", name, path)
+		return nil, errors.Errorf("cannot find given type %s in package %s", name, packagePath)
 	}
 	if n, ok := o.Type().(*types.Named); ok {
 		return n, nil

@@ -8,9 +8,9 @@ import (
 	"github.com/muvaf/typewriter/pkg/packages"
 )
 
-type GeneratorChain []FuncGenerator
+type FuncGeneratorChain []FuncGenerator
 
-func (gc GeneratorChain) Generate(t *types.Named, cm *packages.CommentMarkers) (map[string]interface{}, error) {
+func (gc FuncGeneratorChain) Generate(t *types.Named, cm *packages.CommentMarkers) (map[string]interface{}, error) {
 	result := map[string]interface{}{}
 	for i, g := range gc {
 		if !g.Matches(cm) {
@@ -43,7 +43,7 @@ func (f *Functions) Run() (map[string]interface{}, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "cannot scan comment markers")
 	}
-	gens := GeneratorChain{}
+	gens := FuncGeneratorChain{}
 	for _, fn := range f.NewGeneratorFns {
 		gens = append(gens, fn(f.Cache, f.Imports))
 	}

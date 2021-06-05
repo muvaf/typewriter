@@ -87,9 +87,7 @@ const (
 type {{ .Name }} struct {
 {{ .Fields }}
 }`
-	FieldTmpl = `
-{{ .Comment }}
-{{ .Name }} {{ .Type }} {{ .Tags }}`
+	FieldTmpl    = "\n{{ .Comment }}\n{{ .CommentMarkers }}\n{{ .Name }} {{ .Type }} `{{ .Tag }}`"
 	EnumTypeTmpl = `
 {{ .Comment }}
 {{- .CommentMarkers }}
@@ -104,10 +102,11 @@ type StructTypeTmplInput struct {
 }
 
 type FieldTmplInput struct {
-	Name    string
-	Type    string
-	Tags    string
-	Comment string
+	Name           string
+	Type           string
+	Tag            string
+	Comment        string
+	CommentMarkers string
 }
 
 type EnumTypeTmplInput struct {
@@ -175,12 +174,13 @@ func (tp *Printer) printStructType(name *types.TypeName, s *types.Struct, commen
 		CommentMarkers: commentMarkers,
 	}
 	for i := 0; i < s.NumFields(); i++ {
-		f := s.Field(i)
+		field := s.Field(i)
+		tag := s.Tag(i)
 		// The structs in the remote package are known to be copied, so the
 		// types should reference the local copies.
-		remoteType := f.Type().String()
+		remoteType := field.Type().String()
 		var tnamed *types.Named
-		switch o := f.Type().(type) {
+		switch o := field.Type().(type) {
 		case *types.Pointer:
 			tn, ok := o.Elem().(*types.Named)
 			if ok {
@@ -200,12 +200,12 @@ func (tp *Printer) printStructType(name *types.TypeName, s *types.Struct, commen
 			tnamed = o
 		}
 		if tnamed != nil {
-			remoteType = strings.ReplaceAll(f.Type().String(), tnamed.Obj().Pkg().Path(), tp.Imports.Package)
+			remoteType = strings.ReplaceAll(field.Type().String(), tnamed.Obj().Pkg().Path(), tp.Imports.Package)
 		}
 		fi := &FieldTmplInput{
-			Name: f.Name(),
+			Name: field.Name(),
 			Type: tp.Imports.UseType(remoteType),
-			//Tags: f.
+			Tag:  tag,
 		}
 		t, err := template.New("func").Parse(FieldTmpl)
 		if err != nil {

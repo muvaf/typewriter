@@ -12,21 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package cmd
+// +build generate
+
+package pkg
+
+// Add license headers to all files.
+//go:generate go run -tags generate github.com/google/addlicense -v -c "Muvaffak Onus" . ../cmd
 
 import (
-	"go/types"
-
-	"github.com/muvaf/typewriter/pkg/packages"
+	_ "github.com/google/addlicense"
 )
-
-type NewFuncGeneratorFn func(*packages.Cache, *packages.Imports) FuncGenerator
-
-type FuncGenerator interface {
-	Generate(t *types.Named, cm *packages.CommentMarkers) (map[string]interface{}, error)
-	Matches(cm *packages.CommentMarkers) bool
-}
-
-type TypeGenerator interface {
-	Generate() (*types.Named, *packages.CommentMarkers, error)
-}

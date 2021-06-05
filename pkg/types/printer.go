@@ -121,6 +121,11 @@ func (tp *Printer) Print(rootType *types.Named, commentMarkers string) (string, 
 	tp.load(rootType)
 	out := ""
 	for name, n := range tp.TypeMap {
+		// If the type already exists in the package, we assume it's the same
+		// as the one we use here.
+		if tp.TargetScope.Lookup(name.Name()) != nil {
+			continue
+		}
 		markers := ""
 		if name.Name() == rootType.Obj().Name() {
 			markers = commentMarkers
@@ -168,11 +173,6 @@ func (tp *Printer) printStructType(name *types.TypeName, s *types.Struct, commen
 	ti := &StructTypeTmplInput{
 		Name:           name.Name(),
 		CommentMarkers: commentMarkers,
-	}
-	// If the type already exists in the package, we assume it's the same
-	// as the one we use here.
-	if tp.TargetScope.Lookup(ti.Name) != nil {
-		return "", nil
 	}
 	for i := 0; i < s.NumFields(); i++ {
 		f := s.Field(i)

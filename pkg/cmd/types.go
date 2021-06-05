@@ -21,6 +21,12 @@ import (
 	"github.com/muvaf/typewriter/pkg/types"
 )
 
+// TODO(muvaf): Type can generate & print single type right now. However, that
+// causes *types.Scope to be exposed as high level argument because we need to
+// check for duplicates in the local package. If we accept only package path, then
+// the package will be loaded (expensive) every time a type is generated. Consider
+// the ability to allow multiple types to be printed.
+
 func NewType(im *packages.Imports, cache *packages.Cache, gen TypeGenerator) *Type {
 	return &Type{
 		Imports:   im,

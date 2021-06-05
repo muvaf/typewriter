@@ -22,15 +22,12 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/alecthomas/kong"
 	"github.com/pkg/errors"
 
-	"github.com/muvaf/typewriter/pkg/wrapper"
-
-	"github.com/muvaf/typewriter/pkg/packages"
-
-	"github.com/alecthomas/kong"
-
 	"github.com/muvaf/typewriter/pkg/cmd"
+	"github.com/muvaf/typewriter/pkg/packages"
+	"github.com/muvaf/typewriter/pkg/wrapper"
 )
 
 type typeWriterCLI struct {

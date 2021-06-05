@@ -20,9 +20,9 @@ import (
 	"io/ioutil"
 	"text/template"
 
-	"github.com/muvaf/typewriter/pkg/packages"
-
 	"github.com/pkg/errors"
+
+	"github.com/muvaf/typewriter/pkg/packages"
 )
 
 func WithImports(im *packages.Imports) FileOption {

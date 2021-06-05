@@ -21,11 +21,10 @@ import (
 	"strings"
 	"text/template"
 
-	"github.com/muvaf/typewriter/pkg/traverser"
+	"github.com/pkg/errors"
 
 	"github.com/muvaf/typewriter/pkg/packages"
-
-	"github.com/pkg/errors"
+	"github.com/muvaf/typewriter/pkg/traverser"
 )
 
 const DirectProducerTmpl = `

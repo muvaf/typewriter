@@ -18,11 +18,11 @@ import (
 	"fmt"
 	"go/types"
 
+	"github.com/pkg/errors"
+
 	"github.com/muvaf/typewriter/pkg/packages"
 	"github.com/muvaf/typewriter/pkg/traverser"
 	"github.com/muvaf/typewriter/pkg/wrapper"
-
-	"github.com/pkg/errors"
 )
 
 func NewProducer(cache *packages.Cache, im *packages.Imports) FuncGenerator {

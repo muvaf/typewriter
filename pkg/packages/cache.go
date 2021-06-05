@@ -16,7 +16,6 @@ package packages
 
 import (
 	"fmt"
-
 	"go/types"
 	"strings"
 

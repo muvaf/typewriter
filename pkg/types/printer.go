@@ -6,34 +6,35 @@ import (
 	"strings"
 	"text/template"
 
-	"github.com/muvaf/typewriter/pkg/packages"
-
 	"github.com/pkg/errors"
+
+	"github.com/muvaf/typewriter/pkg/packages"
 )
 
 func NewTypePrinter(im *packages.Imports, targetScope *types.Scope) *Printer {
 	return &Printer{
 		Imports:     im,
-		TypeMap:     map[string]*types.Named{},
+		TypeMap:     map[*types.TypeName]types.Type{},
 		TargetScope: targetScope,
 	}
 }
 
 type Printer struct {
 	Imports     *packages.Imports
-	TypeMap     map[string]*types.Named
+	TypeMap     map[*types.TypeName]types.Type
 	TargetScope *types.Scope
 }
 
 func (tp *Printer) load(t *types.Named) {
-	s, ok := t.Underlying().(*types.Struct)
-	if !ok {
-		// might be function
-		return
+	if t.Underlying() != nil {
+		tp.TypeMap[t.Obj()] = t.Underlying()
 	}
 	// todo: naming collisions? is it possible this function runs with multiple
 	// packages?
-	tp.TypeMap[t.Obj().Name()] = t
+	s, ok := t.Underlying().(*types.Struct)
+	if !ok {
+		return
+	}
 	for i := 0; i < s.NumFields(); i++ {
 		ft := s.Field(i).Type()
 		switch u := ft.(type) {
@@ -60,12 +61,13 @@ func (tp *Printer) load(t *types.Named) {
 	}
 }
 
-// We could have a for look in TypeTmpl but I don't want to run any function
+// We could have a for loop in StructTypeTmpl but I don't want to run any function
 // in Go templates as it's hard to control, easy to make mistakes and too rigid
-// for exception cases.
+// for exception cases. Though we could test whether calling different templating
+// functions independently cause performance problems. Maybe call them in parallel?
 
 const (
-	TypeTmpl = `
+	StructTypeTmpl = `
 {{ .Comment }}
 {{- .CommentMarkers }}
 type {{ .Name }} struct {
@@ -74,9 +76,13 @@ type {{ .Name }} struct {
 	FieldTmpl = `
 {{ .Comment }}
 {{ .Name }} {{ .Type }} {{ .Tags }}`
+	EnumTypeTmpl = `
+{{ .Comment }}
+{{- .CommentMarkers }}
+type {{ .Name }} {{ .UnderlyingType }}`
 )
 
-type TypeTmplInput struct {
+type StructTypeTmplInput struct {
 	Name           string
 	Fields         string
 	Comment        string
@@ -90,76 +96,121 @@ type FieldTmplInput struct {
 	Comment string
 }
 
+type EnumTypeTmplInput struct {
+	Name           string
+	UnderlyingType string
+	Comment        string
+	CommentMarkers string
+}
+
 func (tp *Printer) Print(rootType *types.Named, commentMarkers string) (string, error) {
 	tp.load(rootType)
 	out := ""
 	for name, n := range tp.TypeMap {
-		ti := &TypeTmplInput{
-			Name: name,
+		markers := ""
+		if name.Name() == rootType.Obj().Name() {
+			markers = commentMarkers
 		}
-		if name == rootType.Obj().Name() {
-			ti.CommentMarkers = commentMarkers
-		}
-		// If the type already exists in the package, we assume it's the same
-		// as the one we use here.
-		if tp.TargetScope.Lookup(ti.Name) != nil {
-			continue
-		}
-		s := n.Underlying().(*types.Struct)
-		for i := 0; i < s.NumFields(); i++ {
-			f := s.Field(i)
-			// The structs in the remote package are known to be copied, so the
-			// types should reference the local copies.
-			remoteType := f.Type().String()
-			var tnamed *types.Named
-			switch o := f.Type().(type) {
-			case *types.Pointer:
-				tn, ok := o.Elem().(*types.Named)
-				if ok {
-					tnamed = tn
-				}
-			case *types.Slice:
-				tn, ok := o.Elem().(*types.Named)
-				if ok {
-					tnamed = tn
-				}
-			case *types.Map:
-				tn, ok := o.Elem().(*types.Named)
-				if ok {
-					tnamed = tn
-				}
-			case *types.Named:
-				tnamed = o
-			}
-			if tnamed != nil {
-				remoteType = strings.ReplaceAll(f.Type().String(), tnamed.Obj().Pkg().Path(), tp.Imports.Package)
-			}
-			fi := &FieldTmplInput{
-				Name: f.Name(),
-				Type: tp.Imports.UseType(remoteType),
-				//Tags: f.
-			}
-			t, err := template.New("func").Parse(FieldTmpl)
+		switch o := n.Underlying().(type) {
+		case *types.Struct:
+			result, err := tp.printStructType(name, o, markers)
 			if err != nil {
-				return "", errors.Wrap(err, "cannot parse template")
+				return "", errors.Wrapf(err, "cannot print struct type %s", name.Name())
 			}
-			result := &bytes.Buffer{}
-			if err = t.Execute(result, fi); err != nil {
-				return "", errors.Wrap(err, "cannot execute templating")
+			out += result
+		case *types.Basic:
+			result, err := tp.printEnumType(name, o, markers)
+			if err != nil {
+				return "", errors.Wrapf(err, "cannot print struct type %s", name.Name())
 			}
-			ti.Fields += result.String()
+			out += result
 		}
-		ti.Fields = strings.ReplaceAll(ti.Fields, "\n\n", "\n")
-		t, err := template.New("func").Parse(TypeTmpl)
+		tp.TargetScope.Insert(name)
+	}
+	return out, nil
+}
+
+// printEnumType assumes that the underlying type is a basic type, which may not
+// be the case all the time.
+// TODO(muvaf): Think about how to handle `type MyEnum MyOtherType`
+func (tp *Printer) printEnumType(name *types.TypeName, b *types.Basic, commentMarkers string) (string, error) {
+	ei := &EnumTypeTmplInput{
+		Name:           name.Name(),
+		CommentMarkers: commentMarkers,
+		UnderlyingType: b.Name(),
+	}
+	t, err := template.New("enum").Parse(EnumTypeTmpl)
+	if err != nil {
+		return "", errors.Wrap(err, "cannot parse template")
+	}
+	result := &bytes.Buffer{}
+	if err = t.Execute(result, ei); err != nil {
+		return "", errors.Wrap(err, "cannot execute templating")
+	}
+	return result.String(), nil
+}
+
+func (tp *Printer) printStructType(name *types.TypeName, s *types.Struct, commentMarkers string) (string, error) {
+	ti := &StructTypeTmplInput{
+		Name:           name.Name(),
+		CommentMarkers: commentMarkers,
+	}
+	// If the type already exists in the package, we assume it's the same
+	// as the one we use here.
+	if tp.TargetScope.Lookup(ti.Name) != nil {
+		return "", nil
+	}
+	for i := 0; i < s.NumFields(); i++ {
+		f := s.Field(i)
+		// The structs in the remote package are known to be copied, so the
+		// types should reference the local copies.
+		remoteType := f.Type().String()
+		var tnamed *types.Named
+		switch o := f.Type().(type) {
+		case *types.Pointer:
+			tn, ok := o.Elem().(*types.Named)
+			if ok {
+				tnamed = tn
+			}
+		case *types.Slice:
+			tn, ok := o.Elem().(*types.Named)
+			if ok {
+				tnamed = tn
+			}
+		case *types.Map:
+			tn, ok := o.Elem().(*types.Named)
+			if ok {
+				tnamed = tn
+			}
+		case *types.Named:
+			tnamed = o
+		}
+		if tnamed != nil {
+			remoteType = strings.ReplaceAll(f.Type().String(), tnamed.Obj().Pkg().Path(), tp.Imports.Package)
+		}
+		fi := &FieldTmplInput{
+			Name: f.Name(),
+			Type: tp.Imports.UseType(remoteType),
+			//Tags: f.
+		}
+		t, err := template.New("func").Parse(FieldTmpl)
 		if err != nil {
 			return "", errors.Wrap(err, "cannot parse template")
 		}
 		result := &bytes.Buffer{}
-		if err = t.Execute(result, ti); err != nil {
+		if err = t.Execute(result, fi); err != nil {
 			return "", errors.Wrap(err, "cannot execute templating")
 		}
-		tp.TargetScope.Insert(n.Obj())
-		out += result.String()
+		ti.Fields += result.String()
 	}
-	return out, nil
+	ti.Fields = strings.ReplaceAll(ti.Fields, "\n\n", "\n")
+	t, err := template.New("func").Parse(StructTypeTmpl)
+	if err != nil {
+		return "", errors.Wrap(err, "cannot parse template")
+	}
+	result := &bytes.Buffer{}
+	if err = t.Execute(result, ti); err != nil {
+		return "", errors.Wrap(err, "cannot execute templating")
+	}
+	return result.String(), nil
 }

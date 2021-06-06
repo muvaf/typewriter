@@ -61,6 +61,12 @@ func WithBasicTemplate(t map[types.BasicKind]string) Option {
 	}
 }
 
+func WithBasicPointerTemplate(t map[types.BasicKind]string) Option {
+	return func(g *Generic) {
+		g.Basic.SetPointerTemplate(t)
+	}
+}
+
 func WithNamed(n NamedTraverser) Option {
 	return func(g *Generic) {
 		n.SetGenericTraverser(g)
@@ -123,7 +129,7 @@ func (g *Generic) Print(a, b types.Type, aFieldPath, bFieldPath string, levelNum
 		atb, aBasic := at.Elem().(*types.Basic)
 		btb, bBasic := bt.Elem().(*types.Basic)
 		if aBasic && bBasic {
-			o, err := g.Basic.Print(atb, btb, aFieldPath, bFieldPath)
+			o, err := g.Basic.Print(atb, btb, aFieldPath, bFieldPath, true)
 			return o, errors.Wrap(err, "cannot traverse basic pointer type")
 		}
 		// This is to guard for types like `*[]string` that are implicitly pointer
@@ -165,7 +171,7 @@ func (g *Generic) Print(a, b types.Type, aFieldPath, bFieldPath string, levelNum
 		if !ok {
 			return "", fmt.Errorf("not same type at %s", bFieldPath)
 		}
-		o, err := g.Basic.Print(at, bt, aFieldPath, bFieldPath)
+		o, err := g.Basic.Print(at, bt, aFieldPath, bFieldPath, false)
 		return o, errors.Wrap(err, "cannot traverse basic type")
 	case *types.Struct: // unnamed struct fields.
 		return "", nil

@@ -55,7 +55,7 @@ func NewPointer(im *packages.Imports) *Pointer {
 type Pointer struct {
 	Template string
 	Imports  *packages.Imports
-	Type     GenericTraverser
+	Generic  GenericTraverser
 }
 
 func (p *Pointer) SetTemplate(t string) {
@@ -63,11 +63,11 @@ func (p *Pointer) SetTemplate(t string) {
 }
 
 func (p *Pointer) SetGenericTraverser(tt GenericTraverser) {
-	p.Type = tt
+	p.Generic = tt
 }
 
 func (p *Pointer) Print(a, b *types.Pointer, aFieldPath, bFieldPath string, levelNum int) (string, error) {
-	statements, err := p.Type.Print(a.Elem(), b.Elem(), aFieldPath, bFieldPath, levelNum)
+	statements, err := p.Generic.Print(a.Elem(), b.Elem(), aFieldPath, bFieldPath, levelNum)
 	if err != nil {
 		return "", errors.Wrap(err, "cannot recursively traverse element type of pointer")
 	}

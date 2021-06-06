@@ -55,9 +55,9 @@ func NewMap(im *packages.Imports) *Map {
 }
 
 type Map struct {
-	Template  string
-	Imports   *packages.Imports
-	Recursive GenericTraverser
+	Template string
+	Imports  *packages.Imports
+	Generic  GenericTraverser
 }
 
 func (m *Map) SetTemplate(t string) {
@@ -65,12 +65,12 @@ func (m *Map) SetTemplate(t string) {
 }
 
 func (m *Map) SetGenericTraverser(p GenericTraverser) {
-	m.Recursive = p
+	m.Generic = p
 }
 
 func (m *Map) Print(a, b *types.Map, aFieldPath, bFieldPath string, levelNum int) (string, error) {
 	key := fmt.Sprintf("k%d", levelNum)
-	statements, err := m.Recursive.Print(a.Elem(), b.Elem(), fmt.Sprintf("%s[%s]", aFieldPath, key), fmt.Sprintf("%s[%s]", bFieldPath, key), levelNum+1)
+	statements, err := m.Generic.Print(a.Elem(), b.Elem(), fmt.Sprintf("%s[%s]", aFieldPath, key), fmt.Sprintf("%s[%s]", bFieldPath, key), levelNum+1)
 	if err != nil {
 		return "", errors.Wrap(err, "cannot recursively traverse element type of slice")
 	}

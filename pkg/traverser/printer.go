@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package wrapper
+package traverser
 
 import (
 	"bytes"
@@ -24,7 +24,6 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/muvaf/typewriter/pkg/packages"
-	"github.com/muvaf/typewriter/pkg/traverser"
 )
 
 const DirectProducerTmpl = `
@@ -36,16 +35,16 @@ func {{ .FunctionName }}(a {{ .ATypeName }}) {{ .BTypeName }} {
   return b
 }`
 
-func WithTemplate(t string) FuncOption {
-	return func(p *Func) {
+func WithTemplate(t string) PrinterOption {
+	return func(p *Printer) {
 		p.Template = t
 	}
 }
 
-type FuncOption func(p *Func)
+type PrinterOption func(p *Printer)
 
-func NewFunc(im *packages.Imports, tr traverser.GenericTraverser, opts ...FuncOption) *Func {
-	f := &Func{
+func NewPrinter(im *packages.Imports, tr GenericTraverser, opts ...PrinterOption) *Printer {
+	f := &Printer{
 		Imports:   im,
 		Traverser: tr,
 		Template:  DirectProducerTmpl,
@@ -56,15 +55,14 @@ func NewFunc(im *packages.Imports, tr traverser.GenericTraverser, opts ...FuncOp
 	return f
 }
 
-type Func struct {
+type Printer struct {
 	Imports   *packages.Imports
-	Traverser traverser.GenericTraverser
+	Traverser GenericTraverser
 	Template  string
 }
 
-// Wrap assumes that packages are imported with the same name.
-func (f *Func) Wrap(name string, a, b types.Type, extraInput map[string]interface{}) (string, error) {
-	content, err := f.Traverser.Print(a, b, "a", "b", 0)
+func (p *Printer) Print(name string, a, b types.Type, extraInput map[string]interface{}) (string, error) {
+	content, err := p.Traverser.Print(a, b, "a", "b", 0)
 	if err != nil {
 		return "", errors.Wrap(err, "cannot traverse")
 	}
@@ -86,13 +84,13 @@ func (f *Func) Wrap(name string, a, b types.Type, extraInput map[string]interfac
 	default:
 		bn = b.(*types.Named)
 	}
-	aTypeDec := f.Imports.UseType(an.String())
+	aTypeDec := p.Imports.UseType(an.String())
 	aTypeName := fmt.Sprintf("%s%s", aNamePrefix, aTypeDec)
 	aNewStatement := fmt.Sprintf("%s{}", aTypeName)
 	if aNamePrefix == "*" {
 		aNewStatement = fmt.Sprintf("&%s", aNewStatement)
 	}
-	bTypeDec := f.Imports.UseType(bn.String())
+	bTypeDec := p.Imports.UseType(bn.String())
 	bTypeName := fmt.Sprintf("%s%s", bNamePrefix, bTypeDec)
 	bNewStatement := fmt.Sprintf("%s{}", bTypeName)
 	if bNamePrefix == "*" {
@@ -109,7 +107,7 @@ func (f *Func) Wrap(name string, a, b types.Type, extraInput map[string]interfac
 	for k, v := range extraInput {
 		ts[k] = v
 	}
-	t, err := template.New("func").Parse(f.Template)
+	t, err := template.New("func").Parse(p.Template)
 	if err != nil {
 		return "", errors.Wrap(err, "cannot parse template")
 	}

@@ -22,34 +22,36 @@ import (
 
 	"github.com/muvaf/typewriter/pkg/packages"
 	"github.com/muvaf/typewriter/pkg/traverser"
-	"github.com/muvaf/typewriter/pkg/wrapper"
 )
 
-func NewProducer(cache *packages.Cache, im *packages.Imports) FuncGenerator {
-	if cache == nil {
-		cache = packages.NewCache()
-	}
-	return &Producer{
+func NewProducers(cache *packages.Cache, im *packages.Imports) FuncGenerator {
+	return &Producers{
 		cache:   cache,
 		imports: im,
 	}
 }
 
-type Producer struct {
+// Producers generates a function for every merged type of the given type that will
+// let you produce those remote types from the local one.
+type Producers struct {
 	cache   *packages.Cache
 	imports *packages.Imports
 }
 
-func (p *Producer) Generate(source *types.Named, cm *packages.CommentMarkers) (map[string]interface{}, error) {
+func (p *Producers) Generate(source *types.Named, cm *packages.CommentMarkers) (map[string]interface{}, error) {
+	merged := cm.SectionContents[packages.SectionMerged]
+	if len(merged) == 0 {
+		return nil, nil
+	}
 	result := ""
-	aggregated := cm.SectionContents[packages.SectionMerged]
-	for _, target := range aggregated {
+	for _, target := range merged {
 		targetType, err := p.cache.GetTypeWithFullPath(target)
 		if err != nil {
 			return nil, errors.Wrap(err, "cannot get target type")
 		}
-		fn := wrapper.NewFunc(p.imports, traverser.NewGeneric(p.imports))
-		generated, err := fn.Wrap(fmt.Sprintf("Generate%s", targetType.Obj().Name()), source, targetType, nil)
+		fn := traverser.NewPrinter(p.imports, traverser.NewGeneric(p.imports))
+		funcName := fmt.Sprintf("Generate%s", targetType.Obj().Name())
+		generated, err := fn.Print(funcName, source, targetType, nil)
 		if err != nil {
 			return nil, errors.Wrap(err, "cannot wrap function")
 		}
@@ -58,8 +60,4 @@ func (p *Producer) Generate(source *types.Named, cm *packages.CommentMarkers) (m
 	return map[string]interface{}{
 		"Producers": result,
 	}, nil
-}
-
-func (p *Producer) Matches(cm *packages.CommentMarkers) bool {
-	return len(cm.SectionContents[packages.SectionMerged]) > 0
 }

@@ -55,14 +55,8 @@ func PrintProducers(pkgPath, targetPkgPath string, disableLinter bool) error {
 		wrapper.WithHeaderPath(headerPath),
 	)
 	vars := map[string]interface{}{}
-	f := cmd.Functions{
-		Imports:           file.Imports,
-		SourcePackagePath: pkgPath,
-		Cache:             c,
-		NewGeneratorFns: []cmd.NewFuncGeneratorFn{
-			cmd.NewProducer,
-		},
-	}
+	f := cmd.NewFunctions(c, file.Imports, pkgPath,
+		cmd.WithNewFuncGeneratorFns(cmd.NewProducers))
 	fns, err := f.Run()
 	if err != nil {
 		return err

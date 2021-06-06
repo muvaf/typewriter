@@ -53,5 +53,6 @@ type PointerTraverser interface {
 
 type BasicTraverser interface {
 	SetTemplate(t map[types.BasicKind]string)
-	Print(a, b *types.Basic, aFieldPath, bFieldPath string) (string, error)
+	SetPointerTemplate(t map[types.BasicKind]string)
+	Print(a, b *types.Basic, aFieldPath, bFieldPath string, isPointer bool) (string, error)
 }

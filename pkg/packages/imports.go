@@ -33,8 +33,8 @@ type Imports struct {
 
 // TODO(muvaf): We could make this routine-safe but it's not necessary for now.
 
-// UseType adds the package to the import map and returns the alias you
-// can use in that Go file.
+// UseType adds the package of given type to the import map and returns the alias
+// you can use in that Go file.
 func (m *Imports) UseType(in string) string {
 	pkg, typeNameFmt := parseTypeDec(in)
 	if isBuiltIn(typeNameFmt) {
@@ -66,6 +66,37 @@ func (m *Imports) UseType(in string) string {
 	// the paths are URLs, replacing dot with nothing should be fine.
 	m.Imports[pkg] = alias
 	return fmt.Sprintf(typeNameFmt, alias)
+}
+
+// UsePackage adds the package to the import map and returns the alias you
+// can use in that Go file. The returned package name will have "." as suffix
+// if it is from a different package than the current one.
+func (m *Imports) UsePackage(pkg string) string {
+	if pkg == m.Package {
+		return ""
+	}
+	val, ok := m.Imports[pkg]
+	if ok {
+		return val + "."
+	}
+	tmp := map[string]struct{}{}
+	for _, a := range m.Imports {
+		tmp[a] = struct{}{}
+	}
+	words := strings.Split(pkg, "/")
+	alias := words[len(words)-1]
+	for i := len(words) - 2; i >= 0; i-- {
+		if _, ok := tmp[alias]; !ok {
+			break
+		}
+		alias += strings.ReplaceAll(words[i], ".", "")
+	}
+	// Because the main map guarantees to have each of its entry to be different,
+	// the for loop above has to find a meaningful result before running out.
+	// The ReplaceAll statement is pinching hole in this completeness, but considering
+	// the paths are URLs, replacing dot with nothing should be fine.
+	m.Imports[pkg] = alias
+	return alias + "."
 }
 
 // parseTypeDec returns the full package name and the type that can be used in

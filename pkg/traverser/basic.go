@@ -38,27 +38,38 @@ type AssignmentTmplInput struct {
 
 func NewBasic() *Basic {
 	b := &Basic{
-		Templates: map[types.BasicKind]string{},
+		Templates:        map[types.BasicKind]string{},
+		PointerTemplates: map[types.BasicKind]string{},
 	}
 	for i := 1; i < 26; i++ {
 		b.Templates[types.BasicKind(i)] = AssignmentTmpl
+		b.PointerTemplates[types.BasicKind(i)] = AssignmentTmpl
 	}
 	return b
 }
 
 type Basic struct {
-	Templates map[types.BasicKind]string
+	Templates        map[types.BasicKind]string
+	PointerTemplates map[types.BasicKind]string
 }
 
 func (bs *Basic) SetTemplate(t map[types.BasicKind]string) {
 	bs.Templates = t
 }
 
-func (bs *Basic) Print(a, b *types.Basic, aFieldPath, bFieldPath string) (string, error) {
+func (bs *Basic) SetPointerTemplate(t map[types.BasicKind]string) {
+	bs.PointerTemplates = t
+}
+
+func (bs *Basic) Print(a, b *types.Basic, aFieldPath, bFieldPath string, isPointer bool) (string, error) {
 	if a.Kind() != b.Kind() {
 		return "", fmt.Errorf(errFmtNotSameKind, a.String(), b.String())
 	}
-	tmpl, ok := bs.Templates[a.Kind()]
+	tmplStore := bs.Templates
+	if isPointer {
+		tmplStore = bs.PointerTemplates
+	}
+	tmpl, ok := tmplStore[a.Kind()]
 	if !ok {
 		return "", fmt.Errorf(errFmtUnknownKind, a.String())
 	}

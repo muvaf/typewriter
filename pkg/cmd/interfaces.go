@@ -17,16 +17,33 @@ package cmd
 import (
 	"go/types"
 
+	"github.com/pkg/errors"
+
 	"github.com/muvaf/typewriter/pkg/packages"
 )
+
+type TypeGenerator interface {
+	Generate() (*types.Named, *packages.CommentMarkers, error)
+}
 
 type NewFuncGeneratorFn func(*packages.Cache, *packages.Imports) FuncGenerator
 
 type FuncGenerator interface {
 	Generate(t *types.Named, cm *packages.CommentMarkers) (map[string]interface{}, error)
-	Matches(cm *packages.CommentMarkers) bool
 }
 
-type TypeGenerator interface {
-	Generate() (*types.Named, *packages.CommentMarkers, error)
+type FuncGeneratorChain []FuncGenerator
+
+func (gc FuncGeneratorChain) Generate(t *types.Named, cm *packages.CommentMarkers) (map[string]interface{}, error) {
+	result := map[string]interface{}{}
+	for i, g := range gc {
+		out, err := g.Generate(t, cm)
+		if err != nil {
+			return nil, errors.Wrapf(err, "cannot run generator at index %d", i)
+		}
+		for k, v := range out {
+			result[k] = v
+		}
+	}
+	return result, nil
 }

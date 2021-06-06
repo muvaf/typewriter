@@ -15,41 +15,42 @@
 package cmd
 
 import (
-	"go/types"
-
 	"github.com/pkg/errors"
 
 	"github.com/muvaf/typewriter/pkg/packages"
 )
 
-type FuncGeneratorChain []FuncGenerator
-
-func (gc FuncGeneratorChain) Generate(t *types.Named, cm *packages.CommentMarkers) (map[string]interface{}, error) {
-	result := map[string]interface{}{}
-	for i, g := range gc {
-		if !g.Matches(cm) {
-			continue
-		}
-		out, err := g.Generate(t, cm)
-		if err != nil {
-			return nil, errors.Wrapf(err, "cannot run generator at index %d", i)
-		}
-		for k, v := range out {
-			result[k] = v
-		}
+func WithNewFuncGeneratorFns(fn ...NewFuncGeneratorFn) FunctionsOption {
+	return func(f *Functions) {
+		f.NewGeneratorFns = fn
 	}
-	return result, nil
+}
+
+type FunctionsOption func(*Functions)
+
+func NewFunctions(c *packages.Cache, i *packages.Imports, sourcePkgPath string, opts ...FunctionsOption) *Functions {
+	f := &Functions{
+		cache:             c,
+		imports:           i,
+		SourcePackagePath: sourcePkgPath,
+	}
+
+	for _, opt := range opts {
+		opt(f)
+	}
+	return f
 }
 
 type Functions struct {
-	Imports           *packages.Imports
+	cache   *packages.Cache
+	imports *packages.Imports
+
 	SourcePackagePath string
 	NewGeneratorFns   []NewFuncGeneratorFn
-	Cache             *packages.Cache
 }
 
 func (f *Functions) Run() (map[string]interface{}, error) {
-	sourcePkg, err := f.Cache.GetPackage(f.SourcePackagePath)
+	sourcePkg, err := f.cache.GetPackage(f.SourcePackagePath)
 	if err != nil {
 		return nil, errors.Wrap(err, "cannot get source package")
 	}
@@ -59,7 +60,7 @@ func (f *Functions) Run() (map[string]interface{}, error) {
 	}
 	gens := FuncGeneratorChain{}
 	for _, fn := range f.NewGeneratorFns {
-		gens = append(gens, fn(f.Cache, f.Imports))
+		gens = append(gens, fn(f.cache, f.imports))
 	}
 	input := map[string]interface{}{}
 	for sourceType, commentMarker := range recipe {

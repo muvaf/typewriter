@@ -26,11 +26,11 @@ func NewNamed() *Named {
 }
 
 type Named struct {
-	Recursive GenericTraverser
+	Generic GenericTraverser
 }
 
 func (s *Named) SetGenericTraverser(p GenericTraverser) {
-	s.Recursive = p
+	s.Generic = p
 }
 
 func (s *Named) Print(a, b *types.Named, aFieldPath, bFieldPath string, levelNum int) (string, error) {
@@ -48,6 +48,10 @@ func (s *Named) Print(a, b *types.Named, aFieldPath, bFieldPath string, levelNum
 		if at.Field(i).Name() == "_" {
 			continue
 		}
+		// TODO(muvaf): make this default but modifiable in the future.
+		if !at.Field(i).Exported() {
+			continue
+		}
 		af := at.Field(i)
 		var bf *types.Var
 		for j := 0; j < bt.NumFields(); j++ {
@@ -59,7 +63,7 @@ func (s *Named) Print(a, b *types.Named, aFieldPath, bFieldPath string, levelNum
 		if bf == nil {
 			continue
 		}
-		add, err := s.Recursive.Print(af.Type(), bf.Type(), fmt.Sprintf("%s.%s", aFieldPath, af.Name()), fmt.Sprintf("%s.%s", bFieldPath, bf.Name()), levelNum)
+		add, err := s.Generic.Print(af.Type(), bf.Type(), fmt.Sprintf("%s.%s", aFieldPath, af.Name()), fmt.Sprintf("%s.%s", bFieldPath, bf.Name()), levelNum)
 		if err != nil {
 			return "", errors.Wrap(err, "cannot recursively traverse field of named type")
 		}

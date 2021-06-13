@@ -24,60 +24,29 @@ import (
 // could be helpful. Consider providing functions to make this easy. For example,
 // `ignore all fields in this type that already exists in that other type.`
 
-func WithIgnore(f ...IgnoreFieldFn) Option {
-	return func(rc *Merger) {
-		rc.filter.ignore = f
-	}
-}
-
-type Option func(*Merger)
-
-func NewMerger(name *types.TypeName, inputTypes []*types.Named, opts ...Option) *Merger {
+func NewMerger(name *types.TypeName, inputTypes []*types.Named, flattener *Flattener) *Merger {
 	r := &Merger{
-		TypeName:   name,
-		InputTypes: inputTypes,
-	}
-	for _, f := range opts {
-		f(r)
+		typeName:   name,
+		inputTypes: inputTypes,
+		flattener:  flattener,
 	}
 	return r
 }
 
-type IgnoreFieldFn func(*types.Var) bool
-
-type IgnoreFieldChain []IgnoreFieldFn
-
-func (i IgnoreFieldChain) ShouldIgnore(v *types.Var) bool {
-	for _, f := range i {
-		if f(v) {
-			return true
-		}
-	}
-	return false
-}
-
-type filter struct {
-	ignore IgnoreFieldChain
-}
-
 type Merger struct {
-	filter filter
-
-	InputTypes []*types.Named
-	TypeName   *types.TypeName
+	inputTypes []*types.Named
+	typeName   *types.TypeName
+	flattener  *Flattener
 }
 
 func (m *Merger) Generate() (*types.Named, *packages.CommentMarkers, error) {
 	varMap := map[string]*types.Var{}
 	tagMap := map[string]string{}
 	cm := packages.NewCommentMarkers()
-	for _, c := range m.InputTypes {
+	for _, c := range m.inputTypes {
 		addMergedTypeMarker(cm, c)
 		in := c.Underlying().(*types.Struct)
 		for i := 0; i < in.NumFields(); i++ {
-			if m.filter.ignore.ShouldIgnore(in.Field(i)) {
-				continue
-			}
 			varMap[in.Field(i).Name()] = in.Field(i)
 			tagMap[in.Field(i).Name()] = in.Tag(i)
 		}
@@ -92,7 +61,7 @@ func (m *Merger) Generate() (*types.Named, *packages.CommentMarkers, error) {
 		}
 		i++
 	}
-	n := types.NewNamed(m.TypeName, types.NewStruct(fields, tags), nil)
+	n := types.NewNamed(m.typeName, types.NewStruct(fields, tags), nil)
 	return n, cm, nil
 }
 

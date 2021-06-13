@@ -16,6 +16,7 @@ package types
 
 import (
 	"bytes"
+	"fmt"
 	"go/types"
 	"strings"
 	"text/template"
@@ -24,56 +25,6 @@ import (
 
 	"github.com/muvaf/typewriter/pkg/packages"
 )
-
-func NewTypePrinter(im *packages.Imports, targetScope *types.Scope) *Printer {
-	return &Printer{
-		Imports:     im,
-		TypeMap:     map[*types.TypeName]types.Type{},
-		TargetScope: targetScope,
-	}
-}
-
-type Printer struct {
-	Imports     *packages.Imports
-	TypeMap     map[*types.TypeName]types.Type
-	TargetScope *types.Scope
-}
-
-func (tp *Printer) load(t *types.Named) {
-	if t.Underlying() != nil {
-		tp.TypeMap[t.Obj()] = t.Underlying()
-	}
-	// todo: naming collisions? is it possible this function runs with multiple
-	// packages?
-	s, ok := t.Underlying().(*types.Struct)
-	if !ok {
-		return
-	}
-	for i := 0; i < s.NumFields(); i++ {
-		ft := s.Field(i).Type()
-		switch u := ft.(type) {
-		case *types.Pointer:
-			n, ok := u.Elem().(*types.Named)
-			if !ok {
-				continue
-			}
-			tp.load(n)
-		case *types.Slice:
-			switch n := u.Elem().(type) {
-			case *types.Named:
-				tp.load(n)
-			case *types.Pointer:
-				pn, ok := n.Elem().(*types.Named)
-				if !ok {
-					continue
-				}
-				tp.load(pn)
-			}
-		case *types.Named:
-			tp.load(u)
-		}
-	}
-}
 
 // We could have a for loop in StructTypeTmpl but I don't want to run any function
 // in Go templates as it's hard to control, easy to make mistakes and too rigid
@@ -116,10 +67,25 @@ type EnumTypeTmplInput struct {
 	CommentMarkers string
 }
 
+func NewTypePrinter(im *packages.Imports, targetScope *types.Scope, flattener *Flattener) *Printer {
+	return &Printer{
+		Imports:     im,
+		TargetScope: targetScope,
+		flattener:   flattener,
+	}
+}
+
+type Printer struct {
+	Imports     *packages.Imports
+	TargetScope *types.Scope
+
+	flattener *Flattener
+}
+
 func (tp *Printer) Print(rootType *types.Named, commentMarkers string) (string, error) {
-	tp.load(rootType)
+	typeMap := tp.flattener.Flatten(rootType)
 	out := ""
-	for name, n := range tp.TypeMap {
+	for name, n := range typeMap {
 		// If the type already exists in the package, we assume it's the same
 		// as the one we use here.
 		if tp.TargetScope.Lookup(name.Name()) != nil {
@@ -142,8 +108,11 @@ func (tp *Printer) Print(rootType *types.Named, commentMarkers string) (string, 
 				return "", errors.Wrapf(err, "cannot print struct type %s", name.Name())
 			}
 			out += result
+		default:
+			fmt.Printf("underlying of the type is neither Struct nor Basic, skipping %s\n", name.Name())
+			continue
 		}
-		tp.TargetScope.Insert(name)
+		tp.TargetScope.Insert(&name)
 	}
 	return out, nil
 }
@@ -151,7 +120,7 @@ func (tp *Printer) Print(rootType *types.Named, commentMarkers string) (string, 
 // printEnumType assumes that the underlying type is a basic type, which may not
 // be the case all the time.
 // TODO(muvaf): Think about how to handle `type MyEnum MyOtherType`
-func (tp *Printer) printEnumType(name *types.TypeName, b *types.Basic, commentMarkers string) (string, error) {
+func (tp *Printer) printEnumType(name types.TypeName, b *types.Basic, commentMarkers string) (string, error) {
 	ei := &EnumTypeTmplInput{
 		Name:           name.Name(),
 		CommentMarkers: commentMarkers,
@@ -168,7 +137,7 @@ func (tp *Printer) printEnumType(name *types.TypeName, b *types.Basic, commentMa
 	return result.String(), nil
 }
 
-func (tp *Printer) printStructType(name *types.TypeName, s *types.Struct, commentMarkers string) (string, error) {
+func (tp *Printer) printStructType(name types.TypeName, s *types.Struct, commentMarkers string) (string, error) {
 	ti := &StructTypeTmplInput{
 		Name:           name.Name(),
 		CommentMarkers: commentMarkers,
@@ -176,35 +145,9 @@ func (tp *Printer) printStructType(name *types.TypeName, s *types.Struct, commen
 	for i := 0; i < s.NumFields(); i++ {
 		field := s.Field(i)
 		tag := s.Tag(i)
-		// The structs in the remote package are known to be copied, so the
-		// types should reference the local copies.
-		remoteType := field.Type().String()
-		var tnamed *types.Named
-		switch o := field.Type().(type) {
-		case *types.Pointer:
-			tn, ok := o.Elem().(*types.Named)
-			if ok {
-				tnamed = tn
-			}
-		case *types.Slice:
-			tn, ok := o.Elem().(*types.Named)
-			if ok {
-				tnamed = tn
-			}
-		case *types.Map:
-			tn, ok := o.Elem().(*types.Named)
-			if ok {
-				tnamed = tn
-			}
-		case *types.Named:
-			tnamed = o
-		}
-		if tnamed != nil {
-			remoteType = strings.ReplaceAll(field.Type().String(), tnamed.Obj().Pkg().Path(), tp.Imports.Package)
-		}
 		fi := &FieldTmplInput{
 			Name: field.Name(),
-			Type: tp.Imports.UseType(remoteType),
+			Type: tp.Imports.UseType(field.Type().String()),
 			Tag:  tag,
 		}
 		t, err := template.New("func").Parse(FieldTmpl)

@@ -51,7 +51,7 @@ func PrintProducers(pkgPath, targetPkgPath string, disableLinter bool) error {
 	targetPkgName := targetPkgPath[strings.LastIndex(targetPkgPath, "/")+1:]
 	tmplPath := "/Users/monus/go/src/github.com/muvaf/typewriter/internal/templates/producers.go.tmpl"
 	headerPath := "/Users/monus/go/src/github.com/muvaf/typewriter/internal/header.txt"
-	file := wrapper.NewFile(targetPkgName, tmplPath,
+	file := wrapper.NewFile(targetPkgPath, targetPkgName, tmplPath,
 		wrapper.WithHeaderPath(headerPath),
 	)
 	vars := map[string]interface{}{}

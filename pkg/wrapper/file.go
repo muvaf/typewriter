@@ -39,11 +39,11 @@ func WithHeaderPath(h string) FileOption {
 
 type FileOption func(*File)
 
-func NewFile(pkgName, tmpl string, opts ...FileOption) *File {
+func NewFile(pkgPath, pkgName, tmpl string, opts ...FileOption) *File {
 	f := &File{
 		PackageName: pkgName,
 		Template:    tmpl,
-		Imports:     packages.NewImports(pkgName),
+		Imports:     packages.NewImports(pkgPath, pkgName),
 	}
 	for _, fn := range opts {
 		fn(f)

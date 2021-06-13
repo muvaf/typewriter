@@ -19,16 +19,18 @@ import (
 	"strings"
 )
 
-func NewImports(selfPackage string) *Imports {
+func NewImports(pkgPath, pkgName string) *Imports {
 	return &Imports{
-		Package: selfPackage,
-		Imports: map[string]string{},
+		PackagePath: pkgPath,
+		PackageName: pkgName,
+		Imports:     map[string]string{},
 	}
 }
 
 type Imports struct {
-	Package string
-	Imports map[string]string
+	PackagePath string
+	PackageName string
+	Imports     map[string]string
 }
 
 // TODO(muvaf): We could make this routine-safe but it's not necessary for now.
@@ -36,15 +38,15 @@ type Imports struct {
 // UseType adds the package of given type to the import map and returns the alias
 // you can use in that Go file.
 func (m *Imports) UseType(in string) string {
-	pkg, typeNameFmt := parseTypeDec(in)
+	pkgPath, typeNameFmt := parseTypeDec(in)
 	if isBuiltIn(typeNameFmt) {
 		return in
 	}
-	if pkg == m.Package {
+	if strings.HasSuffix(m.PackagePath, pkgPath) {
 		// this is a temp hack for my own code :(
 		return strings.ReplaceAll(typeNameFmt, "%s.", "")
 	}
-	val, ok := m.Imports[pkg]
+	val, ok := m.Imports[pkgPath]
 	if ok {
 		return fmt.Sprintf(typeNameFmt, val)
 	}
@@ -52,7 +54,7 @@ func (m *Imports) UseType(in string) string {
 	for _, a := range m.Imports {
 		tmp[a] = struct{}{}
 	}
-	words := strings.Split(pkg, "/")
+	words := strings.Split(pkgPath, "/")
 	alias := words[len(words)-1]
 	for i := len(words) - 2; i >= 0; i-- {
 		if _, ok := tmp[alias]; !ok {
@@ -64,18 +66,18 @@ func (m *Imports) UseType(in string) string {
 	// the for loop above has to find a meaningful result before running out.
 	// The ReplaceAll statement is pinching hole in this completeness, but considering
 	// the paths are URLs, replacing dot with nothing should be fine.
-	m.Imports[pkg] = alias
+	m.Imports[pkgPath] = alias
 	return fmt.Sprintf(typeNameFmt, alias)
 }
 
 // UsePackage adds the package to the import map and returns the alias you
 // can use in that Go file. The returned package name will have "." as suffix
 // if it is from a different package than the current one.
-func (m *Imports) UsePackage(pkg string) string {
-	if pkg == m.Package {
+func (m *Imports) UsePackage(pkgPath string) string {
+	if strings.HasSuffix(m.PackagePath, pkgPath) {
 		return ""
 	}
-	val, ok := m.Imports[pkg]
+	val, ok := m.Imports[pkgPath]
 	if ok {
 		return val + "."
 	}
@@ -83,7 +85,7 @@ func (m *Imports) UsePackage(pkg string) string {
 	for _, a := range m.Imports {
 		tmp[a] = struct{}{}
 	}
-	words := strings.Split(pkg, "/")
+	words := strings.Split(pkgPath, "/")
 	alias := words[len(words)-1]
 	for i := len(words) - 2; i >= 0; i-- {
 		if _, ok := tmp[alias]; !ok {
@@ -95,7 +97,7 @@ func (m *Imports) UsePackage(pkg string) string {
 	// the for loop above has to find a meaningful result before running out.
 	// The ReplaceAll statement is pinching hole in this completeness, but considering
 	// the paths are URLs, replacing dot with nothing should be fine.
-	m.Imports[pkg] = alias
+	m.Imports[pkgPath] = alias
 	return alias + "."
 }
 

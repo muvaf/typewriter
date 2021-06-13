@@ -15,6 +15,8 @@
 package types
 
 import (
+	"fmt"
+	"go/token"
 	"go/types"
 
 	"github.com/muvaf/typewriter/pkg/packages"
@@ -40,11 +42,25 @@ func WithFieldFilters(ff ...FieldFilter) FlattenerOption {
 	}
 }
 
+func WithRemotePkgPath(path string) FlattenerOption {
+	return func(f *Flattener) {
+		f.RemotePkgPath = path
+	}
+}
+
+func WithLocalPkg(pkg *types.Package) FlattenerOption {
+	return func(f *Flattener) {
+		f.LocalPkg = pkg
+	}
+}
+
 type FlattenerOption func(*Flattener)
 
 func NewFlattener(im *packages.Imports, opts ...FlattenerOption) *Flattener {
 	f := &Flattener{
-		Imports: im,
+		Imports:     im,
+		TypeFilter:  NopTypeFilter{},
+		FieldFilter: NopFieldFilter{},
 	}
 	for _, opt := range opts {
 		opt(f)
@@ -54,6 +70,10 @@ func NewFlattener(im *packages.Imports, opts ...FlattenerOption) *Flattener {
 
 type Flattener struct {
 	Imports *packages.Imports
+	// RemotePkgPath is the path of the package of the remote type we're pulling
+	// the types from.
+	RemotePkgPath string
+	LocalPkg      *types.Package
 
 	TypeFilter  TypeFilter
 	FieldFilter FieldFilter
@@ -71,14 +91,18 @@ func (f *Flattener) load(m map[types.TypeName]types.Type, t *types.Named) {
 		return
 	}
 	s, ok := t.Underlying().(*types.Struct)
-	if t.Underlying() != nil && !ok {
+	if !ok {
 		// TODO(muvaf): If the underlying type is not Struct, it means it's
-		// likely enum, which doesn't have fields. However, if it points to a named
-		// type instead of a basic one, we're skipping it.
-
-		// todo: naming collisions? is it possible this function runs with multiple
-		// packages?
-		m[*t.Obj()] = t.Underlying()
+		// likely enum, which doesn't have fields, hence no field iteration.
+		// However, if it points to a named type instead of a basic one, we're
+		// skipping it.
+		// TODO(muvaf): naming collisions? is it possible this function runs
+		// with multiple packages?
+		b, ok := t.Underlying().(*types.Basic)
+		if !ok {
+			fmt.Printf("only types whose underlying is struct or basic are supported, skipping %s\n", t.Obj().Name())
+		}
+		m[*t.Obj()] = b
 		return
 	}
 	var fields []*types.Var
@@ -88,30 +112,60 @@ func (f *Flattener) load(m map[types.TypeName]types.Type, t *types.Named) {
 		if field == nil {
 			continue
 		}
-		fields = append(fields, field)
-		tags = append(tags, tag)
-		ft := field.Type()
-		switch u := ft.(type) {
+		switch u := field.Type().(type) {
 		case *types.Pointer:
-			n, ok := u.Elem().(*types.Named)
-			if !ok {
-				continue
+			newElem := u.Elem()
+			if n, ok := u.Elem().(*types.Named); ok {
+				f.load(m, n)
+				if n.Obj().Pkg().Path() == f.RemotePkgPath {
+					newElem = NewNamedInLocalPkg(n, f.LocalPkg)
+				}
 			}
-			f.load(m, n)
+			field = types.NewField(field.Pos(), f.LocalPkg, field.Name(), types.NewPointer(newElem), field.Embedded())
 		case *types.Slice:
+			newElem := u.Elem()
 			switch n := u.Elem().(type) {
 			case *types.Named:
 				f.load(m, n)
-			case *types.Pointer:
-				pn, ok := n.Elem().(*types.Named)
-				if !ok {
-					continue
+				if n.Obj().Pkg().Path() == f.RemotePkgPath {
+					newElem = NewNamedInLocalPkg(n, f.LocalPkg)
 				}
-				f.load(m, pn)
+			case *types.Pointer:
+				if pn, ok := n.Elem().(*types.Named); ok {
+					f.load(m, pn)
+					if pn.Obj().Pkg().Path() == f.RemotePkgPath {
+						newElem = types.NewPointer(NewNamedInLocalPkg(pn, f.LocalPkg))
+					}
+				}
 			}
+			field = types.NewField(field.Pos(), f.LocalPkg, field.Name(), types.NewSlice(newElem), field.Embedded())
 		case *types.Named:
+			newNamed := u
 			f.load(m, u)
+			if u.Obj().Pkg().Path() == f.RemotePkgPath {
+				newNamed = NewNamedInLocalPkg(u, f.LocalPkg)
+			}
+			field = types.NewField(field.Pos(), f.LocalPkg, field.Name(), newNamed, field.Embedded())
+		default:
+			field = types.NewField(field.Pos(), f.LocalPkg, field.Name(), field.Type(), field.Embedded())
 		}
+		fields = append(fields, field)
+		tags = append(tags, tag)
 	}
-	m[*t.Obj()] = types.NewStruct(fields, tags)
+	ns := types.NewStruct(fields, tags)
+	ntn := types.NewTypeName(token.NoPos, f.LocalPkg, t.Obj().Name(), nil)
+	methods := make([]*types.Func, t.NumMethods())
+	for j := 0; j < t.NumMethods(); j++ {
+		methods[j] = t.Method(j)
+	}
+	m[*ntn] = types.NewNamed(ntn, ns, methods)
+}
+
+func NewNamedInLocalPkg(t *types.Named, pkg *types.Package) *types.Named {
+	ntn := types.NewTypeName(t.Obj().Pos(), pkg, t.Obj().Name(), nil)
+	methods := make([]*types.Func, t.NumMethods())
+	for j := 0; j < t.NumMethods(); j++ {
+		methods[j] = t.Method(j)
+	}
+	return types.NewNamed(ntn, t.Underlying(), methods)
 }

@@ -17,6 +17,8 @@ package types
 import (
 	"go/types"
 
+	"github.com/pkg/errors"
+
 	"github.com/muvaf/typewriter/pkg/packages"
 )
 
@@ -24,11 +26,10 @@ import (
 // could be helpful. Consider providing functions to make this easy. For example,
 // `ignore all fields in this type that already exists in that other type.`
 
-func NewMerger(name *types.TypeName, inputTypes []*types.Named, flattener *Flattener) *Merger {
+func NewMerger(name *types.TypeName, inputTypes []*types.Named) *Merger {
 	r := &Merger{
 		typeName:   name,
 		inputTypes: inputTypes,
-		flattener:  flattener,
 	}
 	return r
 }
@@ -36,7 +37,6 @@ func NewMerger(name *types.TypeName, inputTypes []*types.Named, flattener *Flatt
 type Merger struct {
 	inputTypes []*types.Named
 	typeName   *types.TypeName
-	flattener  *Flattener
 }
 
 func (m *Merger) Generate() (*types.Named, *packages.CommentMarkers, error) {
@@ -45,7 +45,10 @@ func (m *Merger) Generate() (*types.Named, *packages.CommentMarkers, error) {
 	cm := packages.NewCommentMarkers()
 	for _, c := range m.inputTypes {
 		addMergedTypeMarker(cm, c)
-		in := c.Underlying().(*types.Struct)
+		in, ok := c.Underlying().(*types.Struct)
+		if !ok {
+			return nil, nil, errors.New("merger cannot work with enum types")
+		}
 		for i := 0; i < in.NumFields(); i++ {
 			varMap[in.Field(i).Name()] = in.Field(i)
 			tagMap[in.Field(i).Name()] = in.Tag(i)

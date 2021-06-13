@@ -27,18 +27,32 @@ import (
 // the package will be loaded (expensive) every time a type is generated. Consider
 // the ability to allow multiple types to be printed.
 
-func NewType(im *packages.Imports, cache *packages.Cache, gen TypeGenerator) *Type {
-	return &Type{
+func WithFlattenerOption(fo types.FlattenerOption) TypeOption {
+	return func(t *Type) {
+		t.FlattenerOption = fo
+	}
+}
+
+type TypeOption func(*Type)
+
+func NewType(im *packages.Imports, cache *packages.Cache, gen TypeGenerator, opts ...TypeOption) *Type {
+	t := &Type{
 		Imports:   im,
 		Cache:     cache,
 		Generator: gen,
 	}
+	for _, opt := range opts {
+		opt(t)
+	}
+
+	return t
 }
 
 type Type struct {
-	Imports   *packages.Imports
-	Cache     *packages.Cache
-	Generator TypeGenerator
+	Imports         *packages.Imports
+	Cache           *packages.Cache
+	Generator       TypeGenerator
+	FlattenerOption types.FlattenerOption
 }
 
 func (t *Type) Run() (string, error) {
@@ -46,7 +60,10 @@ func (t *Type) Run() (string, error) {
 	if err != nil {
 		return "", errors.Wrap(err, "cannot generate type")
 	}
-	printer := types.NewTypePrinter(t.Imports, result.Obj().Pkg().Scope())
+	printer := types.NewTypePrinter(t.Imports, result.Obj().Pkg().Scope(),
+		types.NewFlattener(t.Imports, t.FlattenerOption,
+			types.WithLocalPkg(result.Obj().Pkg()),
+		))
 	structStr, err := printer.Print(result, markers.Print())
 	if err != nil {
 		return "", errors.Wrapf(err, "cannot print generated type %s", structStr)

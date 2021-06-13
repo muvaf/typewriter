@@ -108,6 +108,10 @@ func (f *Flattener) load(m map[types.TypeName]types.Type, t *types.Named) {
 	var fields []*types.Var
 	var tags []string
 	for i := 0; i < s.NumFields(); i++ {
+		// TODO(muvaf): Make this optional.
+		if !s.Field(i).Exported() {
+			continue
+		}
 		field, tag := f.FieldFilter.Filter(s.Field(i), s.Tag(i))
 		if field == nil {
 			continue

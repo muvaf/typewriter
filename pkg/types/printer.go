@@ -18,6 +18,7 @@ import (
 	"bytes"
 	"fmt"
 	"go/types"
+	"sort"
 	"strings"
 	"text/template"
 
@@ -85,32 +86,41 @@ type Printer struct {
 func (tp *Printer) Print(rootType *types.Named, commentMarkers string) (string, error) {
 	typeMap := tp.flattener.Flatten(rootType)
 	out := ""
-	for name, n := range typeMap {
+	typeList := make([]*types.Named, len(typeMap))
+	i := 0
+	for k := range typeMap {
+		typeList[i] = typeMap[k]
+		i++
+	}
+	sort.SliceStable(typeList, func(i, j int) bool {
+		return typeList[i].Obj().Name() < typeList[j].Obj().Name()
+	})
+	for _, n := range typeList {
 		// If the type already exists in the package, we assume it's the same
 		// as the one we use here.
-		if tp.TargetScope.Lookup(name.Name()) != nil {
+		if tp.TargetScope.Lookup(n.Obj().Name()) != nil {
 			continue
 		}
 		markers := ""
-		if name.Name() == rootType.Obj().Name() {
+		if n.Obj().Name() == rootType.Obj().Name() {
 			markers = commentMarkers
 		}
 		switch o := n.Underlying().(type) {
 		case *types.Struct:
-			result, err := tp.printStructType(name, o, markers)
+			result, err := tp.printStructType(*n.Obj(), o, markers)
 			if err != nil {
-				return "", errors.Wrapf(err, "cannot print struct type %s", name.Name())
+				return "", errors.Wrapf(err, "cannot print struct type %s", n.Obj().Name())
 			}
 			out += result
 
 		case *types.Basic:
-			result, err := tp.printEnumType(name, o, markers)
+			result, err := tp.printEnumType(*n.Obj(), o, markers)
 			if err != nil {
-				return "", errors.Wrapf(err, "cannot print struct type %s", name.Name())
+				return "", errors.Wrapf(err, "cannot print struct type %s", n.Obj().Name())
 			}
 			out += result
 		default:
-			fmt.Printf("underlying of the type is neither Struct nor Basic, skipping %s\n", name.Name())
+			fmt.Printf("underlying of the type is neither Struct nor Basic, skipping %s\n", n.Obj().Name())
 			continue
 		}
 		tp.TargetScope.Insert(n.Obj())
@@ -143,13 +153,25 @@ func (tp *Printer) printStructType(name types.TypeName, s *types.Struct, comment
 		Name:           name.Name(),
 		CommentMarkers: commentMarkers,
 	}
+	// Field order we get here is not stable but tag & field indexes are coupled.
+	tagMap := make(map[*types.Var]string, s.NumFields())
 	for i := 0; i < s.NumFields(); i++ {
-		field := s.Field(i)
-		tag := s.Tag(i)
+		tagMap[s.Field(i)] = s.Tag(i)
+	}
+	fields := make([]*types.Var, len(tagMap))
+	i := 0
+	for f := range tagMap {
+		fields[i] = f
+		i++
+	}
+	sort.SliceStable(fields, func(i, j int) bool {
+		return fields[i].Name() < fields[j].Name()
+	})
+	for _, field := range fields {
 		fi := &FieldTmplInput{
 			Name: field.Name(),
 			Type: tp.Imports.UseType(field.Type().String()),
-			Tag:  tag,
+			Tag:  tagMap[field],
 		}
 		t, err := template.New("func").Parse(FieldTmpl)
 		if err != nil {

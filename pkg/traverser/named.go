@@ -17,6 +17,7 @@ package traverser
 import (
 	"fmt"
 	"go/types"
+	"sort"
 
 	"github.com/pkg/errors"
 )
@@ -35,24 +36,32 @@ func (s *Named) SetGenericTraverser(p GenericTraverser) {
 
 func (s *Named) Print(a, b *types.Named, aFieldPath, bFieldPath string, levelNum int) (string, error) {
 	// TODO(muvaf): This could be *types.Map and valid.
-	at, ok := a.Underlying().(*types.Struct)
-	if !ok {
+	at, aok := a.Underlying().(*types.Struct)
+	if !aok {
 		return "", nil
 	}
-	bt := b.Underlying().(*types.Struct)
-	if !ok {
+	bt, bok := b.Underlying().(*types.Struct)
+	if !bok {
 		return "", nil
 	}
-	out := ""
+	// The list of fields look like sorted but actually isn't. So, we need to sort
+	// it for stable output.
+	aFields := make([]*types.Var, at.NumFields())
 	for i := 0; i < at.NumFields(); i++ {
-		if at.Field(i).Name() == "_" {
+		aFields[i] = at.Field(i)
+	}
+	sort.SliceStable(aFields, func(i, j int) bool {
+		return aFields[i].Name() < aFields[j].Name()
+	})
+	out := ""
+	for _, af := range aFields {
+		if af.Name() == "_" {
 			continue
 		}
 		// TODO(muvaf): make this default but modifiable in the future.
-		if !at.Field(i).Exported() {
+		if !af.Exported() {
 			continue
 		}
-		af := at.Field(i)
 		var bf *types.Var
 		for j := 0; j < bt.NumFields(); j++ {
 			if bt.Field(j).Name() == af.Name() {

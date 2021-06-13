@@ -102,6 +102,7 @@ func (tp *Printer) Print(rootType *types.Named, commentMarkers string) (string, 
 				return "", errors.Wrapf(err, "cannot print struct type %s", name.Name())
 			}
 			out += result
+
 		case *types.Basic:
 			result, err := tp.printEnumType(name, o, markers)
 			if err != nil {
@@ -112,7 +113,7 @@ func (tp *Printer) Print(rootType *types.Named, commentMarkers string) (string, 
 			fmt.Printf("underlying of the type is neither Struct nor Basic, skipping %s\n", name.Name())
 			continue
 		}
-		tp.TargetScope.Insert(&name)
+		tp.TargetScope.Insert(n.Obj())
 	}
 	return out, nil
 }

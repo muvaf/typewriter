@@ -79,13 +79,13 @@ type Flattener struct {
 	FieldFilter FieldFilter
 }
 
-func (f *Flattener) Flatten(t *types.Named) map[types.TypeName]types.Type {
-	typeMap := map[types.TypeName]types.Type{}
+func (f *Flattener) Flatten(t *types.Named) map[types.TypeName]*types.Named {
+	typeMap := map[types.TypeName]*types.Named{}
 	f.load(typeMap, t)
 	return typeMap
 }
 
-func (f *Flattener) load(m map[types.TypeName]types.Type, t *types.Named) {
+func (f *Flattener) load(m map[types.TypeName]*types.Named, t *types.Named) {
 	t = f.TypeFilter.Filter(t)
 	if t == nil {
 		return
@@ -102,7 +102,12 @@ func (f *Flattener) load(m map[types.TypeName]types.Type, t *types.Named) {
 		if !ok {
 			fmt.Printf("only types whose underlying is struct or basic are supported, skipping %s\n", t.Obj().Name())
 		}
-		m[*t.Obj()] = b
+		ntn := types.NewTypeName(token.NoPos, f.LocalPkg, t.Obj().Name(), nil)
+		methods := make([]*types.Func, t.NumMethods())
+		for j := 0; j < t.NumMethods(); j++ {
+			methods[j] = t.Method(j)
+		}
+		m[*ntn] = types.NewNamed(ntn, b, methods)
 		return
 	}
 	var fields []*types.Var

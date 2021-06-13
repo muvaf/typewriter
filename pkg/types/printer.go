@@ -25,54 +25,49 @@ import (
 	"github.com/muvaf/typewriter/pkg/packages"
 )
 
-func NewTypePrinter(im *packages.Imports, targetScope *types.Scope) *Printer {
-	return &Printer{
-		Imports:     im,
-		TypeMap:     map[*types.TypeName]types.Type{},
-		TargetScope: targetScope,
+type TypeFilter interface {
+	Filter(types.TypeName, types.Type) types.Type
+}
+
+type FieldFilter interface {
+	Filter(field *types.Var, tag string) (*types.Var, string)
+}
+
+func WithTypeFilters(f ...TypeFilter) TypePrinterOption {
+	return func(p *Printer) {
+		p.TypeFilter = TypeFilterChain(f)
 	}
+}
+
+func WithFieldFilters(f ...FieldFilter) TypePrinterOption {
+	return func(p *Printer) {
+		p.FieldFilter = FieldFilterChain(f)
+	}
+}
+
+type TypePrinterOption func(*Printer)
+
+func NewTypePrinter(im *packages.Imports, targetScope *types.Scope, opts ...TypePrinterOption) *Printer {
+	p := &Printer{
+		Imports:     im,
+		TypeMap:     map[types.TypeName]types.Type{},
+		TargetScope: targetScope,
+		TypeFilter:  NopTypeFilter{},
+		FieldFilter: NopFieldFilter{},
+	}
+	for _, opt := range opts {
+		opt(p)
+	}
+	return p
 }
 
 type Printer struct {
 	Imports     *packages.Imports
-	TypeMap     map[*types.TypeName]types.Type
+	TypeMap     map[types.TypeName]types.Type
 	TargetScope *types.Scope
-}
 
-func (tp *Printer) load(t *types.Named) {
-	if t.Underlying() != nil {
-		tp.TypeMap[t.Obj()] = t.Underlying()
-	}
-	// todo: naming collisions? is it possible this function runs with multiple
-	// packages?
-	s, ok := t.Underlying().(*types.Struct)
-	if !ok {
-		return
-	}
-	for i := 0; i < s.NumFields(); i++ {
-		ft := s.Field(i).Type()
-		switch u := ft.(type) {
-		case *types.Pointer:
-			n, ok := u.Elem().(*types.Named)
-			if !ok {
-				continue
-			}
-			tp.load(n)
-		case *types.Slice:
-			switch n := u.Elem().(type) {
-			case *types.Named:
-				tp.load(n)
-			case *types.Pointer:
-				pn, ok := n.Elem().(*types.Named)
-				if !ok {
-					continue
-				}
-				tp.load(pn)
-			}
-		case *types.Named:
-			tp.load(u)
-		}
-	}
+	TypeFilter  TypeFilter
+	FieldFilter FieldFilter
 }
 
 // We could have a for loop in StructTypeTmpl but I don't want to run any function
@@ -119,7 +114,11 @@ type EnumTypeTmplInput struct {
 func (tp *Printer) Print(rootType *types.Named, commentMarkers string) (string, error) {
 	tp.load(rootType)
 	out := ""
-	for name, n := range tp.TypeMap {
+	for name := range tp.TypeMap {
+		t := tp.TypeFilter.Filter(name, tp.TypeMap[name])
+		if t == nil {
+			continue
+		}
 		// If the type already exists in the package, we assume it's the same
 		// as the one we use here.
 		if tp.TargetScope.Lookup(name.Name()) != nil {
@@ -129,7 +128,7 @@ func (tp *Printer) Print(rootType *types.Named, commentMarkers string) (string, 
 		if name.Name() == rootType.Obj().Name() {
 			markers = commentMarkers
 		}
-		switch o := n.Underlying().(type) {
+		switch o := t.Underlying().(type) {
 		case *types.Struct:
 			result, err := tp.printStructType(name, o, markers)
 			if err != nil {
@@ -143,7 +142,7 @@ func (tp *Printer) Print(rootType *types.Named, commentMarkers string) (string, 
 			}
 			out += result
 		}
-		tp.TargetScope.Insert(name)
+		tp.TargetScope.Insert(&name)
 	}
 	return out, nil
 }
@@ -151,7 +150,7 @@ func (tp *Printer) Print(rootType *types.Named, commentMarkers string) (string, 
 // printEnumType assumes that the underlying type is a basic type, which may not
 // be the case all the time.
 // TODO(muvaf): Think about how to handle `type MyEnum MyOtherType`
-func (tp *Printer) printEnumType(name *types.TypeName, b *types.Basic, commentMarkers string) (string, error) {
+func (tp *Printer) printEnumType(name types.TypeName, b *types.Basic, commentMarkers string) (string, error) {
 	ei := &EnumTypeTmplInput{
 		Name:           name.Name(),
 		CommentMarkers: commentMarkers,
@@ -168,14 +167,20 @@ func (tp *Printer) printEnumType(name *types.TypeName, b *types.Basic, commentMa
 	return result.String(), nil
 }
 
-func (tp *Printer) printStructType(name *types.TypeName, s *types.Struct, commentMarkers string) (string, error) {
+func (tp *Printer) printStructType(name types.TypeName, s *types.Struct, commentMarkers string) (string, error) {
 	ti := &StructTypeTmplInput{
 		Name:           name.Name(),
 		CommentMarkers: commentMarkers,
 	}
 	for i := 0; i < s.NumFields(); i++ {
-		field := s.Field(i)
-		tag := s.Tag(i)
+		// TODO(muvaf): Make this optional.
+		if !s.Field(i).Exported() {
+			continue
+		}
+		field, tag := tp.FieldFilter.Filter(s.Field(i), s.Tag(i))
+		if field == nil {
+			continue
+		}
 		// The structs in the remote package are known to be copied, so the
 		// types should reference the local copies.
 		remoteType := field.Type().String()
@@ -227,4 +232,40 @@ func (tp *Printer) printStructType(name *types.TypeName, s *types.Struct, commen
 		return "", errors.Wrap(err, "cannot execute templating")
 	}
 	return result.String(), nil
+}
+
+func (tp *Printer) load(t *types.Named) {
+	if t.Underlying() != nil {
+		tp.TypeMap[*t.Obj()] = t.Underlying()
+	}
+	// todo: naming collisions? is it possible this function runs with multiple
+	// packages?
+	s, ok := t.Underlying().(*types.Struct)
+	if !ok {
+		return
+	}
+	for i := 0; i < s.NumFields(); i++ {
+		ft := s.Field(i).Type()
+		switch u := ft.(type) {
+		case *types.Pointer:
+			n, ok := u.Elem().(*types.Named)
+			if !ok {
+				continue
+			}
+			tp.load(n)
+		case *types.Slice:
+			switch n := u.Elem().(type) {
+			case *types.Named:
+				tp.load(n)
+			case *types.Pointer:
+				pn, ok := n.Elem().(*types.Named)
+				if !ok {
+					continue
+				}
+				tp.load(pn)
+			}
+		case *types.Named:
+			tp.load(u)
+		}
+	}
 }

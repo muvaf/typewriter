@@ -87,6 +87,8 @@ func (pc *Cache) GetPackage(absolutePath string) (*packages.Package, error) {
 				return nil, errors.Errorf("cannot load package with error: %s", errStr)
 			}
 			pc.store[pkg.PkgPath] = pkg
+			// TODO(muvaf): Replace this with a proper logger.
+			fmt.Printf("loaded package %s\n", absolutePath)
 			return pkg, nil
 		}
 	}

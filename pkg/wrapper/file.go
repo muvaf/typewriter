@@ -18,6 +18,8 @@ import (
 	"bytes"
 	"fmt"
 	"io/ioutil"
+	"os"
+	"path/filepath"
 	"text/template"
 
 	"github.com/pkg/errors"
@@ -95,4 +97,16 @@ func (f *File) Wrap(input map[string]interface{}) ([]byte, error) {
 	result := &bytes.Buffer{}
 	err = t.Execute(result, values)
 	return []byte(result.String()), errors.Wrap(err, "cannot execute template")
+}
+
+// Write wraps the file with given input and writes it to the file system.
+func (f *File) Write(name string, input map[string]interface{}, perm os.FileMode) error {
+	if err := os.MkdirAll(filepath.Dir(name), perm); err != nil {
+		return errors.Wrap(err, "cannot mkdir directory of the file")
+	}
+	data, err := f.Wrap(input)
+	if err != nil {
+		return errors.Wrap(err, "cannot wrap file")
+	}
+	return errors.Wrap(os.WriteFile(name, data, perm), "cannot write file")
 }

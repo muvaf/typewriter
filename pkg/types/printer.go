@@ -68,30 +68,20 @@ type EnumTypeTmplInput struct {
 	CommentMarkers string
 }
 
-func NewTypePrinter(im *packages.Imports, targetScope *types.Scope, flattener *Flattener) *Printer {
+func NewTypePrinter(im *packages.Imports, targetScope *types.Scope) *Printer {
 	return &Printer{
 		Imports:     im,
 		TargetScope: targetScope,
-		flattener:   flattener,
 	}
 }
 
 type Printer struct {
 	Imports     *packages.Imports
 	TargetScope *types.Scope
-
-	flattener *Flattener
 }
 
-func (tp *Printer) Print(rootType *types.Named, commentMarkers string) (string, error) {
-	typeMap := tp.flattener.Flatten(rootType)
+func (tp *Printer) Print(typeList []*types.Named) (string, error) {
 	out := ""
-	typeList := make([]*types.Named, len(typeMap))
-	i := 0
-	for k := range typeMap {
-		typeList[i] = typeMap[k]
-		i++
-	}
 	sort.SliceStable(typeList, func(i, j int) bool {
 		return typeList[i].Obj().Name() < typeList[j].Obj().Name()
 	})
@@ -102,9 +92,6 @@ func (tp *Printer) Print(rootType *types.Named, commentMarkers string) (string, 
 			continue
 		}
 		markers := ""
-		if n.Obj().Name() == rootType.Obj().Name() {
-			markers = commentMarkers
-		}
 		switch o := n.Underlying().(type) {
 		case *types.Struct:
 			result, err := tp.printStructType(*n.Obj(), o, markers)

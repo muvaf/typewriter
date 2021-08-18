@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"text/template"
 
@@ -26,6 +27,12 @@ import (
 
 	"github.com/muvaf/typewriter/pkg/packages"
 )
+
+func LinterEnabled() FileOption {
+	return func(f *File) {
+		f.LinterEnabled = true
+	}
+}
 
 func WithImports(im *packages.Imports) FileOption {
 	return func(f *File) {
@@ -61,11 +68,12 @@ func NewFile(pkgPath, pkgName, tmpl string, opts ...FileOption) *File {
 }
 
 type File struct {
-	HeaderPath   string
-	GenStatement string
-	Template     string
-	PackageName  string
-	Imports      *packages.Imports
+	HeaderPath    string
+	GenStatement  string
+	Template      string
+	PackageName   string
+	LinterEnabled bool
+	Imports       *packages.Imports
 }
 
 // Wrap writes the objects to the file one by one.
@@ -95,8 +103,22 @@ func (f *File) Wrap(input map[string]interface{}) ([]byte, error) {
 		return nil, errors.Wrap(err, "cannot parse template")
 	}
 	result := &bytes.Buffer{}
-	err = t.Execute(result, values)
-	return []byte(result.String()), errors.Wrap(err, "cannot execute template")
+	if err := t.Execute(result, values); err != nil {
+		return nil, errors.Wrap(err, "cannot execute template")
+	}
+	if f.LinterEnabled {
+		outb := bytes.NewBuffer([]byte{})
+		errOut := bytes.NewBuffer([]byte{})
+		shellCmd := exec.Command("goimports")
+		shellCmd.Stdin = result
+		shellCmd.Stdout = outb
+		shellCmd.Stderr = errOut
+		if err := shellCmd.Run(); err != nil {
+			return nil, errors.Wrapf(err, "goimports failed: %s", errOut.String())
+		}
+		result = outb
+	}
+	return result.Bytes(), nil
 }
 
 // Write wraps the file with given input and writes it to the file system.

@@ -37,9 +37,9 @@ type TypeProcessor interface {
 
 type FieldProcessorChain []FieldProcessor
 
-func (fpc FieldProcessorChain) Process(n *types.Named, f *types.Var, tag string, comment string, fieldPath []string) error {
+func (fpc FieldProcessorChain) Process(n *types.Named, f *types.Var, tag string, comment string, formerFields []string) error {
 	for i, fp := range fpc {
-		if err := fp.Process(n, f, tag, comment, fieldPath); err != nil {
+		if err := fp.Process(n, f, tag, comment, formerFields); err != nil {
 			return errors.Errorf("field processor at index %d failed", i)
 		}
 	}
@@ -47,5 +47,5 @@ func (fpc FieldProcessorChain) Process(n *types.Named, f *types.Var, tag string,
 }
 
 type FieldProcessor interface {
-	Process(n *types.Named, f *types.Var, tag string, comment string, fieldPath []string) error
+	Process(n *types.Named, f *types.Var, tag string, comment string, formerFields []string) error
 }

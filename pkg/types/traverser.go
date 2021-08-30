@@ -39,7 +39,7 @@ type Traverser struct {
 	commentCache *packages.CommentCache
 }
 
-func (t *Traverser) Traverse(n *types.Named, fieldPath ...string) error {
+func (t *Traverser) Traverse(n *types.Named, formerFields ...string) error {
 	pComments, err := t.commentCache.GetComments(n.Obj().Pkg().Path())
 	if err != nil {
 		return errors.Wrapf(err, "cannot get comments for package %s", n.Obj().Pkg().Path())
@@ -54,14 +54,14 @@ func (t *Traverser) Traverse(n *types.Named, fieldPath ...string) error {
 	for i := 0; i < st.NumFields(); i++ {
 		field := st.Field(i)
 		tag := st.Tag(i)
-		if err := t.FieldProcessors.Process(n, field, tag, pComments[field], fieldPath); err != nil {
+		if err := t.FieldProcessors.Process(n, field, tag, pComments[field], formerFields); err != nil {
 			return errors.Wrapf(err, "field processors failed to run for field %s of type %s", field.Name(), n.Obj().Name())
 		}
 		ft, ok := field.Type().(*types.Named)
 		if !ok {
 			continue
 		}
-		if err := t.Traverse(ft, append(fieldPath, field.Name())...); err != nil {
+		if err := t.Traverse(ft, append(formerFields, field.Name())...); err != nil {
 			return errors.Wrapf(err, "failed to traverse type of field %s", field.Name())
 		}
 	}

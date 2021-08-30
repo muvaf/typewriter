@@ -27,9 +27,13 @@ const (
 	LoadMode = packages.NeedName | packages.NeedFiles | packages.NeedImports | packages.NeedDeps | packages.NeedTypes | packages.NeedSyntax
 )
 
-func NewCache() *Cache {
+func NewCache(init ...*packages.Package) *Cache {
+	s := map[string]*packages.Package{}
+	for _, p := range init {
+		s[p.PkgPath] = p
+	}
 	return &Cache{
-		store: map[string]*packages.Package{},
+		store: s,
 	}
 }
 

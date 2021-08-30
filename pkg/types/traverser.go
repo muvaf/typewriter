@@ -17,14 +17,15 @@ package types
 import (
 	"go/types"
 
-	"github.com/muvaf/typewriter/pkg/packages"
-
 	"github.com/pkg/errors"
+
+	"github.com/muvaf/typewriter/pkg/packages"
 )
 
 func NewTraverser(cache *packages.Cache, typeProcessors TypeProcessorChain, fieldProcessors FieldProcessorChain) *Traverser {
 	return &Traverser{
 		cache:           cache,
+		commentCache:    packages.NewCommentCache(cache),
 		TypeProcessors:  typeProcessors,
 		FieldProcessors: fieldProcessors,
 	}
@@ -34,11 +35,16 @@ type Traverser struct {
 	TypeProcessors  TypeProcessorChain
 	FieldProcessors FieldProcessorChain
 
-	cache *packages.Cache
+	cache        *packages.Cache
+	commentCache *packages.CommentCache
 }
 
 func (t *Traverser) Traverse(n *types.Named, fieldPath ...string) error {
-	if err := t.TypeProcessors.Process(n, []string{}); err != nil {
+	pComments, err := t.commentCache.GetComments(n.Obj().Pkg().Path())
+	if err != nil {
+		return errors.Wrapf(err, "cannot get comments for package %s", n.Obj().Pkg().Path())
+	}
+	if err := t.TypeProcessors.Process(n, pComments[n.Obj()]); err != nil {
 		return errors.Wrapf(err, "type processors failed to run for type %s", n.Obj().Name())
 	}
 	st, ok := n.Underlying().(*types.Struct)
@@ -48,7 +54,7 @@ func (t *Traverser) Traverse(n *types.Named, fieldPath ...string) error {
 	for i := 0; i < st.NumFields(); i++ {
 		field := st.Field(i)
 		tag := st.Tag(i)
-		if err := t.FieldProcessors.Process(n, field, tag, []string{}, fieldPath); err != nil {
+		if err := t.FieldProcessors.Process(n, field, tag, pComments[field], fieldPath); err != nil {
 			return errors.Wrapf(err, "field processors failed to run for field %s of type %s", field.Name(), n.Obj().Name())
 		}
 		ft, ok := field.Type().(*types.Named)

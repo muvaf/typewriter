@@ -22,6 +22,11 @@ import (
 	"github.com/muvaf/typewriter/pkg/packages"
 )
 
+const (
+	SectionMerged = "merged"
+	SectionTypes  = "types"
+)
+
 // TODO(muvaf): Using the result of union operation as ignore func parameter
 // could be helpful. Consider providing functions to make this easy. For example,
 // `ignore all fields in this type that already exists in that other type.`
@@ -39,15 +44,17 @@ type Merger struct {
 	typeName   *types.TypeName
 }
 
-func (m *Merger) Generate() (*types.Named, *packages.CommentMarkers, error) {
+// TODO(muvaf): Comments are not transferred.
+
+func (m *Merger) Generate() (*types.Named, packages.CommentMarkers, error) {
 	varMap := map[string]*types.Var{}
 	tagMap := map[string]string{}
-	cm := packages.NewCommentMarkers()
+	cm := packages.NewCommentMarkers("")
 	for _, c := range m.inputTypes {
 		addMergedTypeMarker(cm, c)
 		in, ok := c.Underlying().(*types.Struct)
 		if !ok {
-			return nil, nil, errors.New("merger cannot work with enum types")
+			return nil, packages.CommentMarkers{}, errors.New("merger cannot work with enum types")
 		}
 		for i := 0; i < in.NumFields(); i++ {
 			varMap[in.Field(i).Name()] = in.Field(i)
@@ -68,12 +75,9 @@ func (m *Merger) Generate() (*types.Named, *packages.CommentMarkers, error) {
 	return n, cm, nil
 }
 
-func addMergedTypeMarker(cm *packages.CommentMarkers, n *types.Named) {
-	fullPath := packages.FullPath(n)
-	for _, ag := range cm.SectionContents[packages.SectionMerged] {
-		if ag == fullPath {
-			return
-		}
+func addMergedTypeMarker(cm packages.CommentMarkers, n *types.Named) {
+	if _, ok := cm.SectionContents[SectionTypes]; !ok {
+		cm.SectionContents[SectionTypes] = map[string]string{}
 	}
-	cm.SectionContents[packages.SectionMerged] = append(cm.SectionContents[packages.SectionMerged], fullPath)
+	cm.SectionContents[SectionTypes][SectionMerged] = packages.FullPath(n)
 }

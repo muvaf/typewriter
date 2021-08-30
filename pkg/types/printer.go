@@ -91,6 +91,7 @@ func (tp *Printer) Print(typeList []*types.Named) (string, error) {
 		if tp.TargetScope.Lookup(n.Obj().Name()) != nil {
 			continue
 		}
+		// TODO(muvaf): Integrate type printer with the comment utilities.
 		markers := ""
 		switch o := n.Underlying().(type) {
 		case *types.Struct:

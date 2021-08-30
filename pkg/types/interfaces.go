@@ -22,9 +22,9 @@ import (
 
 type TypeProcessorChain []TypeProcessor
 
-func (tpc TypeProcessorChain) Process(n *types.Named, comments []string) error {
+func (tpc TypeProcessorChain) Process(n *types.Named, comment string) error {
 	for i, tp := range tpc {
-		if err := tp.Process(n, comments); err != nil {
+		if err := tp.Process(n, comment); err != nil {
 			return errors.Errorf("type processor at index %d failed", i)
 		}
 	}
@@ -32,14 +32,14 @@ func (tpc TypeProcessorChain) Process(n *types.Named, comments []string) error {
 }
 
 type TypeProcessor interface {
-	Process(n *types.Named, comments []string) error
+	Process(n *types.Named, comment string) error
 }
 
 type FieldProcessorChain []FieldProcessor
 
-func (fpc FieldProcessorChain) Process(n *types.Named, f *types.Var, tag string, comments []string, fieldPath []string) error {
+func (fpc FieldProcessorChain) Process(n *types.Named, f *types.Var, tag string, comment string, fieldPath []string) error {
 	for i, fp := range fpc {
-		if err := fp.Process(n, f, tag, comments, fieldPath); err != nil {
+		if err := fp.Process(n, f, tag, comment, fieldPath); err != nil {
 			return errors.Errorf("field processor at index %d failed", i)
 		}
 	}
@@ -47,5 +47,5 @@ func (fpc FieldProcessorChain) Process(n *types.Named, f *types.Var, tag string,
 }
 
 type FieldProcessor interface {
-	Process(n *types.Named, f *types.Var, tag string, comments []string, fieldPath []string) error
+	Process(n *types.Named, f *types.Var, tag string, comment string, fieldPath []string) error
 }

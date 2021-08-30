@@ -79,10 +79,16 @@ type Flattener struct {
 	FieldFilter FieldFilter
 }
 
-func (f *Flattener) Flatten(t *types.Named) map[types.TypeName]*types.Named {
+func (f *Flattener) Flatten(t *types.Named) []*types.Named {
 	typeMap := map[types.TypeName]*types.Named{}
 	f.load(typeMap, t)
-	return typeMap
+	result := make([]*types.Named, len(typeMap))
+	i := 0
+	for _, n := range typeMap {
+		result[i] = n
+		i++
+	}
+	return result
 }
 
 func (f *Flattener) load(m map[types.TypeName]*types.Named, t *types.Named) {

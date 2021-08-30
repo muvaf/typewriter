@@ -17,76 +17,35 @@ package packages
 import (
 	"fmt"
 	"go/types"
-	"strings"
 
 	"github.com/pkg/errors"
-
 	"golang.org/x/tools/go/packages"
 )
 
-const (
-	CommentPrefix = "+typewriter"
-	SectionTypes  = "types"
-	SectionMerged = "merged"
-)
+// Comments lets you fetch comment of an object.
+type Comments map[types.Object]string
 
-func NewCommentMarkers() *CommentMarkers {
-	return &CommentMarkers{
-		SectionContents: map[string][]string{},
+func NewCommentCache(cache *Cache) *CommentCache {
+	return &CommentCache{
+		pkgCache: cache,
+		cache:    map[string]Comments{},
 	}
 }
 
-type CommentMarkers struct {
-	SectionContents map[string][]string
+// CommentCache serves as the cache for accessing comments in packages. Indexed
+// by package path.
+type CommentCache struct {
+	pkgCache *Cache
+	cache    map[string]Comments
 }
 
-func (ct *CommentMarkers) Print() string {
-	out := ""
-	for k, va := range ct.SectionContents {
-		for _, v := range va {
-			out += fmt.Sprintf("\n// +typewriter:%s:%s=%s", SectionTypes, k, v)
-		}
+func (cc *CommentCache) GetComments(pkgPath string) (Comments, error) {
+	p, err := cc.pkgCache.GetPackage(pkgPath)
+	if err != nil {
+		return nil, errors.Wrapf(err, "cannot get package %s", pkgPath)
 	}
-	return out
-}
-
-func FullPath(n *types.Named) string {
-	return fmt.Sprintf("%s.%s", n.Obj().Pkg().Path(), n.Obj().Name())
-}
-
-func NewCommentTagFromText(c string) (*CommentMarkers, error) {
-	if !strings.Contains(c, CommentPrefix) {
-		return nil, nil
-	}
-	ct := NewCommentMarkers()
-	lines := strings.Split(c, "\n")
-	for _, l := range lines {
-		if !strings.Contains(l, CommentPrefix) {
-			continue
-		}
-		sections := strings.Split(l, ":")
-		pair := strings.Split(sections[len(sections)-1], "=")
-		if len(pair) > 2 {
-			// TODO(muvaf): support multiple equalities in one line.
-			return nil, errors.Errorf("there cannot be more than one equality sign in the marker")
-		}
-		k := pair[0]
-		v := ""
-		if len(pair) == 2 {
-			v = pair[1]
-		}
-		if sections[1] == SectionTypes {
-			if _, ok := ct.SectionContents[k]; !ok {
-				ct.SectionContents[k] = nil
-			}
-			if v != "" {
-				ct.SectionContents[k] = append(ct.SectionContents[k], v)
-			}
-		} else {
-			return nil, errors.Errorf("only types section is currently supported in markers")
-		}
-	}
-	return ct, nil
+	c, err := LoadComments(p)
+	return c, errors.Wrapf(err, "cannot load comments for package %s", pkgPath)
 }
 
 type objid struct {
@@ -94,8 +53,8 @@ type objid struct {
 	Line     int
 }
 
-func LoadCommentMarkers(p *packages.Package) (map[*types.Named]*CommentMarkers, error) {
-	result := map[*types.Named]*CommentMarkers{}
+func LoadComments(p *packages.Package) (Comments, error) {
+	result := Comments{}
 	objPositions := map[objid]types.Object{}
 	for _, n := range p.Types.Scope().Names() {
 		o := p.Types.Scope().Lookup(n)
@@ -104,11 +63,7 @@ func LoadCommentMarkers(p *packages.Package) (map[*types.Named]*CommentMarkers, 
 	}
 	for _, f := range p.Syntax {
 		for _, g := range f.Comments {
-			ct, err := NewCommentTagFromText(g.Text())
-			if err != nil {
-				return nil, err
-			}
-			if ct == nil {
+			if len(g.Text()) == 0 {
 				continue
 			}
 			pos := p.Fset.Position(g.End())
@@ -116,15 +71,12 @@ func LoadCommentMarkers(p *packages.Package) (map[*types.Named]*CommentMarkers, 
 			if !ok {
 				continue
 			}
-			n, ok := belonging.Type().(*types.Named)
-			if !ok {
-				continue
-			}
-			result[n] = ct
+			result[belonging] = g.Text()
 		}
 	}
-	if len(result) == 0 {
-		return nil, nil
-	}
 	return result, nil
+}
+
+func FullPath(n *types.Named) string {
+	return fmt.Sprintf("%s.%s", n.Obj().Pkg().Path(), n.Obj().Name())
 }

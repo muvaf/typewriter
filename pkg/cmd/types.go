@@ -56,17 +56,14 @@ type Type struct {
 }
 
 func (t *Type) Run() (string, error) {
-	result, markers, err := t.Generator.Generate()
+	generated, _, err := t.Generator.Generate()
 	if err != nil {
 		return "", errors.Wrap(err, "cannot generate type")
 	}
-	printer := types.NewTypePrinter(t.Imports, result.Obj().Pkg().Scope(),
-		types.NewFlattener(t.Imports, t.FlattenerOption,
-			types.WithLocalPkg(result.Obj().Pkg()),
-		))
-	structStr, err := printer.Print(result, markers.Print())
-	if err != nil {
-		return "", errors.Wrapf(err, "cannot print generated type %s", structStr)
-	}
-	return structStr, nil
+	flattened := types.NewFlattener(t.Imports, t.FlattenerOption,
+		types.WithLocalPkg(generated.Obj().Pkg()),
+	).Flatten(generated)
+	printer := types.NewTypePrinter(t.Imports, generated.Obj().Pkg().Scope())
+	structStr, err := printer.Print(flattened)
+	return structStr, errors.Wrapf(err, "cannot print generated type %s", structStr)
 }

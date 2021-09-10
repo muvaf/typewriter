@@ -79,5 +79,5 @@ func addMergedTypeMarker(cm packages.CommentMarkers, n *types.Named) {
 	if _, ok := cm.SectionContents[SectionTypes]; !ok {
 		cm.SectionContents[SectionTypes] = map[string]string{}
 	}
-	cm.SectionContents[SectionTypes][SectionMerged] = packages.FullPath(n)
+	cm.SectionContents[SectionTypes][SectionMerged] = QualifiedTypePath(n.Obj())
 }

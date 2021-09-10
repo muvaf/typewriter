@@ -15,7 +15,6 @@
 package packages
 
 import (
-	"fmt"
 	"go/token"
 	"go/types"
 
@@ -78,8 +77,4 @@ func LoadComments(p *packages.Package) Comments {
 		}
 	}
 	return result
-}
-
-func FullPath(n *types.Named) string {
-	return fmt.Sprintf("%s.%s", n.Obj().Pkg().Path(), n.Obj().Name())
 }

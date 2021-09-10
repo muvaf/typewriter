@@ -34,50 +34,62 @@ import (
 
 const (
 	StructTypeTmpl = `
+
 {{ .Comment }}
-{{- .CommentMarkers }}
 type {{ .Name }} struct {
 {{ .Fields }}
 }`
-	FieldTmpl    = "\n{{ .Comment }}\n{{ .CommentMarkers }}\n{{ .Name }} {{ .Type }} `{{ .Tag }}`"
+	FieldTmpl    = "\n\n\n{{ .Comment }}\n{{ .Name }} {{ .Type }} `{{ .Tag }}`"
 	EnumTypeTmpl = `
+
 {{ .Comment }}
-{{- .CommentMarkers }}
 type {{ .Name }} {{ .UnderlyingType }}`
 )
 
 type StructTypeTmplInput struct {
-	Name           string
-	Fields         string
-	Comment        string
-	CommentMarkers string
+	Name    string
+	Fields  string
+	Comment string
 }
 
 type FieldTmplInput struct {
-	Name           string
-	Type           string
-	Tag            string
-	Comment        string
-	CommentMarkers string
+	Name    string
+	Type    string
+	Tag     string
+	Comment string
 }
 
 type EnumTypeTmplInput struct {
 	Name           string
 	UnderlyingType string
 	Comment        string
-	CommentMarkers string
 }
 
-func NewTypePrinter(im *packages.Imports, targetScope *types.Scope) *Printer {
-	return &Printer{
+func WithComments(c Comments) PrinterOption {
+	return func(p *Printer) {
+		p.Comments = c
+	}
+}
+
+type PrinterOption func(*Printer)
+
+func NewPrinter(im *packages.Imports, targetScope *types.Scope, opts ...PrinterOption) *Printer {
+	p := &Printer{
 		Imports:     im,
 		TargetScope: targetScope,
+		Comments:    Comments{},
 	}
+
+	for _, f := range opts {
+		f(p)
+	}
+	return p
 }
 
 type Printer struct {
 	Imports     *packages.Imports
 	TargetScope *types.Scope
+	Comments    Comments
 }
 
 func (tp *Printer) Print(typeList []*types.Named) (string, error) {
@@ -91,18 +103,16 @@ func (tp *Printer) Print(typeList []*types.Named) (string, error) {
 		if tp.TargetScope.Lookup(n.Obj().Name()) != nil {
 			continue
 		}
-		// TODO(muvaf): Integrate type printer with the comment utilities.
-		markers := ""
 		switch o := n.Underlying().(type) {
 		case *types.Struct:
-			result, err := tp.printStructType(*n.Obj(), o, markers)
+			result, err := tp.printStructType(n.Obj(), o)
 			if err != nil {
 				return "", errors.Wrapf(err, "cannot print struct type %s", n.Obj().Name())
 			}
 			out += result
 
 		case *types.Basic:
-			result, err := tp.printEnumType(*n.Obj(), o, markers)
+			result, err := tp.printEnumType(n.Obj(), o)
 			if err != nil {
 				return "", errors.Wrapf(err, "cannot print struct type %s", n.Obj().Name())
 			}
@@ -119,11 +129,11 @@ func (tp *Printer) Print(typeList []*types.Named) (string, error) {
 // printEnumType assumes that the underlying type is a basic type, which may not
 // be the case all the time.
 // TODO(muvaf): Think about how to handle `type MyEnum MyOtherType`
-func (tp *Printer) printEnumType(name types.TypeName, b *types.Basic, commentMarkers string) (string, error) {
+func (tp *Printer) printEnumType(name *types.TypeName, b *types.Basic) (string, error) {
 	ei := &EnumTypeTmplInput{
 		Name:           name.Name(),
-		CommentMarkers: commentMarkers,
 		UnderlyingType: b.Name(),
+		Comment:        tp.Comments[QualifiedTypePath(name)],
 	}
 	t, err := template.New("enum").Parse(EnumTypeTmpl)
 	if err != nil {
@@ -136,10 +146,10 @@ func (tp *Printer) printEnumType(name types.TypeName, b *types.Basic, commentMar
 	return result.String(), nil
 }
 
-func (tp *Printer) printStructType(name types.TypeName, s *types.Struct, commentMarkers string) (string, error) {
+func (tp *Printer) printStructType(name *types.TypeName, s *types.Struct) (string, error) {
 	ti := &StructTypeTmplInput{
-		Name:           name.Name(),
-		CommentMarkers: commentMarkers,
+		Name:    name.Name(),
+		Comment: tp.Comments[QualifiedTypePath(name)],
 	}
 	// Field order we get here is not stable but tag & field indexes are coupled.
 	tagMap := make(map[*types.Var]string, s.NumFields())
@@ -157,9 +167,10 @@ func (tp *Printer) printStructType(name types.TypeName, s *types.Struct, comment
 	})
 	for _, field := range fields {
 		fi := &FieldTmplInput{
-			Name: field.Name(),
-			Type: tp.Imports.UseType(field.Type().String()),
-			Tag:  tagMap[field],
+			Name:    field.Name(),
+			Type:    tp.Imports.UseType(field.Type().String()),
+			Tag:     tagMap[field],
+			Comment: tp.Comments[QualifiedFieldPath(name, field.Name())],
 		}
 		t, err := template.New("func").Parse(FieldTmpl)
 		if err != nil {

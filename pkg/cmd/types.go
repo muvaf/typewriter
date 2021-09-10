@@ -63,7 +63,7 @@ func (t *Type) Run() (string, error) {
 	flattened := types.NewFlattener(t.Imports, t.FlattenerOption,
 		types.WithLocalPkg(generated.Obj().Pkg()),
 	).Flatten(generated)
-	printer := types.NewTypePrinter(t.Imports, generated.Obj().Pkg().Scope())
+	printer := types.NewPrinter(t.Imports, generated.Obj().Pkg().Scope())
 	structStr, err := printer.Print(flattened)
 	return structStr, errors.Wrapf(err, "cannot print generated type %s", structStr)
 }

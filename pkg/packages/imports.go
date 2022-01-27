@@ -111,10 +111,16 @@ func parseTypeDec(s string) (string, string) {
 	// pkg.Type
 	// *pkg.Type
 	// Get rid of slice and pointer chars.
-	tmp := strings.NewReplacer(
+
+	tmp := s
+	if strings.HasPrefix(s, "map"){
+		tmp = s[strings.Index(s, "]")+1:]
+	}
+
+	tmp = strings.NewReplacer(
 		"[", "",
 		"]", "",
-		"*", "").Replace(s)
+		"*", "").Replace(tmp)
 	dotIndex := strings.LastIndex(tmp, ".")
 	if dotIndex == -1 {
 		return "", s

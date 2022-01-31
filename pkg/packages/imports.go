@@ -38,20 +38,29 @@ type Imports struct {
 // UseType adds the package of given type to the import map and returns the alias
 // you can use in that Go file.
 func (m *Imports) UseType(in string) string {
+	if strings.HasPrefix(in, "map") {
+		keyType := calculateTypeNameAndAlias(in[strings.Index(in, "[")+1:strings.Index(in, "]")], m.PackagePath, m.Imports)
+		valueType := calculateTypeNameAndAlias(in[strings.Index(in, "]")+1:], m.PackagePath, m.Imports)
+		return fmt.Sprintf("map[%s]%s", keyType, valueType)
+	}
+	return calculateTypeNameAndAlias(in, m.PackagePath, m.Imports)
+}
+
+func calculateTypeNameAndAlias(in, packagePath string, imports map[string]string) string {
 	pkgPath, typeNameFmt := parseTypeDec(in)
 	if isBuiltIn(typeNameFmt) {
 		return in
 	}
-	if strings.HasSuffix(m.PackagePath, pkgPath) {
+	if strings.HasSuffix(packagePath, pkgPath) {
 		// this is a temp hack for my own code :(
 		return strings.ReplaceAll(typeNameFmt, "%s.", "")
 	}
-	val, ok := m.Imports[pkgPath]
+	val, ok := imports[pkgPath]
 	if ok {
 		return fmt.Sprintf(typeNameFmt, val)
 	}
 	tmp := map[string]struct{}{}
-	for _, a := range m.Imports {
+	for _, a := range imports {
 		tmp[a] = struct{}{}
 	}
 	words := strings.Split(pkgPath, "/")
@@ -66,7 +75,7 @@ func (m *Imports) UseType(in string) string {
 	// the for loop above has to find a meaningful result before running out.
 	// The ReplaceAll statement is pinching hole in this completeness, but considering
 	// the paths are URLs, replacing dot with nothing should be fine.
-	m.Imports[pkgPath] = alias
+	imports[pkgPath] = alias
 	return fmt.Sprintf(typeNameFmt, alias)
 }
 
@@ -111,6 +120,7 @@ func parseTypeDec(s string) (string, string) {
 	// pkg.Type
 	// *pkg.Type
 	// Get rid of slice and pointer chars.
+
 	tmp := strings.NewReplacer(
 		"[", "",
 		"]", "",

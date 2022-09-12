@@ -1,0 +1,34 @@
+{
+  "version": 1,
+  "dependencies": [
+    {
+      "source": "https://github.com/alecthomas/kong",
+      "dependencies": [
+        {
+          "source": "https://github.com/davecgh/go-spew"
+        },
+        {
+          "source": "https://github.com/pkg/errors"
+        },
+        {
+          "source": "https://github.com/pmezard/go-difflib"
+        },
+        {
+          "source": "https://github.com/stretchr/testify"
+        }
+      ]
+    },
+    {
+      "source": "https://github.com/google/addlicense",
+      "dependencies": []
+    },
+    {
+      "source": "https://github.com/google/go-cmp",
+      "dependencies": []
+    },
+    {
+      "source": "https://github.com/pkg/errors",
+      "dependencies": []
+    }
+  ]
+}

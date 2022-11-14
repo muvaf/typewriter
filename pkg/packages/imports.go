@@ -64,7 +64,7 @@ func calculateTypeNameAndAlias(in, packagePath string, imports map[string]string
 		tmp[a] = struct{}{}
 	}
 	words := strings.Split(pkgPath, "/")
-	alias := words[len(words)-1]
+	alias := "_" + words[len(words)-1]
 	for i := len(words) - 2; i >= 0; i-- {
 		if _, ok := tmp[alias]; !ok {
 			break
@@ -95,7 +95,7 @@ func (m *Imports) UsePackage(pkgPath string) string {
 		tmp[a] = struct{}{}
 	}
 	words := strings.Split(pkgPath, "/")
-	alias := words[len(words)-1]
+	alias := "_" + words[len(words)-1]
 	for i := len(words) - 2; i >= 0; i-- {
 		if _, ok := tmp[alias]; !ok {
 			break
@@ -137,7 +137,7 @@ func parseTypeDec(s string) (string, string) {
 func isBuiltIn(s string) bool {
 	s = strings.NewReplacer("*", "", "[]", "").Replace(s)
 	switch s {
-	case "bool", "string", "int", "int64", "map[string]string":
+	case "range", "bool", "string", "int", "int64", "map[string]string":
 		return true
 	}
 	return false
